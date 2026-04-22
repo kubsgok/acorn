@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from 'expo-router'
@@ -33,8 +33,14 @@ function calcAcorns(status: 'on_time' | 'late'): number {
   return status === 'on_time' ? 10 : 5
 }
 
+function isOverdue(log: MedLog): boolean {
+  if (log.status !== 'pending') return false
+  const diffMins = (Date.now() - new Date(log.scheduled_at).getTime()) / 60000
+  return diffMins > 60
+}
+
 const STATUS_LABELS: Record<string, string> = {
-  pending: 'Pending',
+  pending: 'Upcoming',
   on_time: 'Taken on time',
   late: 'Taken late',
   missed: 'Missed',
@@ -45,6 +51,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   on_time: { bg: '#dcfce7', text: '#166534' },
   late: { bg: '#dbeafe', text: '#1e40af' },
   missed: { bg: '#fee2e2', text: '#991b1b' },
+  overdue: { bg: '#fee2e2', text: '#991b1b' },
 }
 
 export default function HomeScreen() {
@@ -61,9 +68,9 @@ export default function HomeScreen() {
     if (!user) return
     setLoading(true)
 
-    // Load or generate today's logs
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999)
+    const todayDay = new Date().getDay() // 0=Sun … 6=Sat
 
     // Fetch existing logs for today
     const { data: existingLogs } = await supabase
@@ -73,17 +80,27 @@ export default function HomeScreen() {
       .gte('scheduled_at', todayStart.toISOString())
       .lte('scheduled_at', todayEnd.toISOString())
 
-    // Fetch all schedules for this user
+    // Fetch schedules including days_of_week from medications
     const { data: schedules } = await supabase
       .from('medication_schedules')
-      .select('*, medication:medications!inner(id, name, dose, color, user_id)')
+      .select('*, medication:medications!inner(id, name, dose, color, user_id, days_of_week)')
       .eq('medication.user_id', user.id)
 
     if (!schedules) { setLoading(false); return }
 
-    // Create missing logs for today
-    const existingScheduleIds = new Set((existingLogs ?? []).map((l: MedLog) => l.schedule_id))
-    const toCreate = schedules
+    // Filter to only schedules active today
+    const todaySchedules = schedules.filter((s) => {
+      try {
+        const days: number[] = JSON.parse(s.medication.days_of_week ?? '[0,1,2,3,4,5,6]')
+        return days.includes(todayDay)
+      } catch {
+        return true
+      }
+    })
+
+    // Create missing logs for today's active schedules only
+    const existingScheduleIds = new Set((existingLogs ?? []).map((l: any) => l.schedule_id))
+    const toCreate = todaySchedules
       .filter((s) => !existingScheduleIds.has(s.id))
       .map((s) => ({
         user_id: user.id,
@@ -98,7 +115,8 @@ export default function HomeScreen() {
       await supabase.from('medication_logs').insert(toCreate)
     }
 
-    // Reload
+    // Reload — only logs whose schedule is active today
+    const activeScheduleIds = new Set(todaySchedules.map((s) => s.id))
     const { data: allLogs } = await supabase
       .from('medication_logs')
       .select('*, medication:medications(name, dose, color)')
@@ -107,7 +125,8 @@ export default function HomeScreen() {
       .lte('scheduled_at', todayEnd.toISOString())
       .order('scheduled_at')
 
-    setLogs((allLogs as MedLog[]) ?? [])
+    const filtered = ((allLogs ?? []) as MedLog[]).filter((l) => activeScheduleIds.has(l.schedule_id))
+    setLogs(filtered)
     await loadAcorns(user.id)
     setLoading(false)
   }, [user, loadAcorns])
@@ -137,16 +156,75 @@ export default function HomeScreen() {
     setShowConfirm(null)
   }
 
-  const squirrelMood = currentStreak > 0 ? '😊' : '😔'
+  const overdueLogs = logs.filter((l) => isOverdue(l))
+  const upcomingLogs = logs.filter((l) => l.status === 'pending' && !isOverdue(l))
+  const doneLogs = logs.filter((l) => l.status !== 'pending')
   const allDone = logs.length > 0 && logs.every((l) => l.status !== 'pending')
+  const squirrelMood = currentStreak > 0 ? '😊' : '😔'
+
+  function renderLog(log: MedLog, overdue = false) {
+    const displayStatus = overdue ? 'overdue' : log.status
+    const style = STATUS_COLORS[displayStatus] ?? STATUS_COLORS[log.status]
+    const isPending = log.status === 'pending'
+
+    return (
+      <View key={log.id} style={{
+        backgroundColor: '#fff', borderRadius: 16, padding: 16,
+        marginBottom: 12, borderWidth: 1,
+        borderColor: overdue ? '#fca5a5' : '#e7e5e4',
+        borderLeftWidth: 4, borderLeftColor: log.medication.color,
+      }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#1c1917' }}>
+              {log.medication.name}
+            </Text>
+            {log.medication.dose && (
+              <Text style={{ fontSize: 13, color: '#78716c', marginTop: 2 }}>{log.medication.dose}</Text>
+            )}
+            <Text style={{ fontSize: 12, color: '#a8a29e', marginTop: 4 }}>
+              Scheduled: {new Date(log.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </View>
+          <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: style.bg }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: style.text }}>
+              {overdue ? 'Overdue' : STATUS_LABELS[log.status]}
+            </Text>
+          </View>
+        </View>
+
+        {isPending && (
+          <TouchableOpacity
+            onPress={() => setShowConfirm(log)}
+            disabled={logging === log.id}
+            style={{
+              marginTop: 14,
+              backgroundColor: overdue ? '#dc2626' : '#d97706',
+              borderRadius: 10, paddingVertical: 10, alignItems: 'center',
+            }}
+          >
+            {logging === log.id
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={{ color: '#fff', fontWeight: '700' }}>I took it</Text>
+            }
+          </TouchableOpacity>
+        )}
+
+        {!isPending && log.acorns_earned > 0 && (
+          <Text style={{ fontSize: 12, color: '#d97706', marginTop: 10, fontWeight: '600' }}>
+            +{log.acorns_earned} 🌰 earned
+          </Text>
+        )}
+      </View>
+    )
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fdf8f0' }}>
-      {/* Acorn earn flash */}
       {lastEarned && (
         <View style={{
           position: 'absolute', top: 60, alignSelf: 'center', zIndex: 99,
-          backgroundColor: '#d97706', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10
+          backgroundColor: '#d97706', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 10,
         }}>
           <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>+{lastEarned} 🌰</Text>
         </View>
@@ -171,7 +249,7 @@ export default function HomeScreen() {
         <View style={{
           backgroundColor: '#fff', borderRadius: 16, padding: 16,
           flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24,
-          borderWidth: 1, borderColor: '#e7e5e4'
+          borderWidth: 1, borderColor: '#e7e5e4',
         }}>
           <Text style={{ fontSize: 32 }}>{squirrelMood}</Text>
           <View style={{ flex: 1 }}>
@@ -179,6 +257,8 @@ export default function HomeScreen() {
             <Text style={{ color: '#78716c', fontSize: 13, marginTop: 2 }}>
               {allDone
                 ? 'All done for today! Great job.'
+                : overdueLogs.length > 0
+                ? `You have ${overdueLogs.length} overdue dose${overdueLogs.length > 1 ? 's' : ''}. Log them now.`
                 : currentStreak > 0
                 ? `${currentStreak} day streak going strong. Keep it up!`
                 : 'Take your medication to start a streak.'}
@@ -186,7 +266,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Medication list */}
         {loading ? (
           <ActivityIndicator color="#d97706" style={{ marginTop: 40 }} />
         ) : logs.length === 0 ? (
@@ -197,58 +276,39 @@ export default function HomeScreen() {
             </Text>
           </View>
         ) : (
-          logs.map((log) => {
-            const style = STATUS_COLORS[log.status]
-            const isPending = log.status === 'pending'
-            return (
-              <View key={log.id} style={{
-                backgroundColor: '#fff', borderRadius: 16, padding: 16,
-                marginBottom: 12, borderWidth: 1, borderColor: '#e7e5e4',
-                borderLeftWidth: 4, borderLeftColor: log.medication.color
-              }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#1c1917' }}>
-                      {log.medication.name}
-                    </Text>
-                    {log.medication.dose && (
-                      <Text style={{ fontSize: 13, color: '#78716c', marginTop: 2 }}>{log.medication.dose}</Text>
-                    )}
-                    <Text style={{ fontSize: 12, color: '#a8a29e', marginTop: 4 }}>
-                      Scheduled: {new Date(log.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  </View>
-                  <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: style.bg }}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: style.text }}>
-                      {STATUS_LABELS[log.status]}
-                    </Text>
-                  </View>
-                </View>
+          <>
+            {/* Overdue */}
+            {overdueLogs.length > 0 && (
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#dc2626', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Overdue
+                </Text>
+                {overdueLogs.map((log) => renderLog(log, true))}
+              </View>
+            )}
 
-                {isPending && (
-                  <TouchableOpacity
-                    onPress={() => setShowConfirm(log)}
-                    disabled={logging === log.id}
-                    style={{
-                      marginTop: 14, backgroundColor: '#d97706', borderRadius: 10,
-                      paddingVertical: 10, alignItems: 'center'
-                    }}
-                  >
-                    {logging === log.id
-                      ? <ActivityIndicator color="#fff" size="small" />
-                      : <Text style={{ color: '#fff', fontWeight: '700' }}>I took it</Text>
-                    }
-                  </TouchableOpacity>
-                )}
-
-                {!isPending && log.acorns_earned > 0 && (
-                  <Text style={{ fontSize: 12, color: '#d97706', marginTop: 10, fontWeight: '600' }}>
-                    +{log.acorns_earned} 🌰 earned
+            {/* Upcoming */}
+            {upcomingLogs.length > 0 && (
+              <View style={{ marginBottom: 8 }}>
+                {(overdueLogs.length > 0 || doneLogs.length > 0) && (
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#78716c', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Upcoming
                   </Text>
                 )}
+                {upcomingLogs.map((log) => renderLog(log, false))}
               </View>
-            )
-          })
+            )}
+
+            {/* Done */}
+            {doneLogs.length > 0 && (
+              <View>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#78716c', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Done
+                </Text>
+                {doneLogs.map((log) => renderLog(log, false))}
+              </View>
+            )}
+          </>
         )}
       </ScrollView>
 

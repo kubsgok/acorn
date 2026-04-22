@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput, Modal } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router'
 import { supabase } from '../../src/lib/supabase'
@@ -10,9 +10,26 @@ interface Med { id: string; name: string; dose: string | null; color: string; sc
 export default function SettingsScreen() {
   const user = useAuthStore((s) => s.user)
   const squirrelName = useAuthStore((s) => s.squirrelName)
+  const setSquirrelName = useAuthStore((s) => s.setSquirrelName)
   const signOut = useAuthStore((s) => s.signOut)
   const [meds, setMeds] = useState<Med[]>([])
   const [loading, setLoading] = useState(true)
+  const [editingName, setEditingName] = useState(false)
+  const [nameInput, setNameInput] = useState('')
+
+  function openNameEdit() {
+    setNameInput(squirrelName)
+    setEditingName(true)
+  }
+
+  async function saveName() {
+    const trimmed = nameInput.trim()
+    if (!trimmed) { Alert.alert('Enter a name.'); return }
+    if (!user) return
+    await supabase.from('users').update({ squirrel_name: trimmed }).eq('id', user.id)
+    setSquirrelName(trimmed)
+    setEditingName(false)
+  }
 
   useFocusEffect(useCallback(() => { loadMeds() }, []))
 
@@ -51,10 +68,44 @@ export default function SettingsScreen() {
         <Text style={{ fontSize: 22, fontWeight: '700', color: '#1c1917', marginBottom: 24 }}>Settings</Text>
 
         {/* Squirrel */}
-        <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#e7e5e4', marginBottom: 20 }}>
-          <Text style={{ fontSize: 13, color: '#a8a29e', marginBottom: 4 }}>Your squirrel</Text>
-          <Text style={{ fontSize: 16, fontWeight: '600', color: '#1c1917' }}>🐿️ {squirrelName}</Text>
-        </View>
+        <TouchableOpacity
+          onPress={openNameEdit}
+          style={{ backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#e7e5e4', marginBottom: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <View>
+            <Text style={{ fontSize: 13, color: '#a8a29e', marginBottom: 4 }}>Your squirrel</Text>
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#1c1917' }}>🐿️ {squirrelName}</Text>
+          </View>
+          <Text style={{ fontSize: 13, color: '#d97706', fontWeight: '600' }}>Edit</Text>
+        </TouchableOpacity>
+
+        {/* Edit name modal */}
+        <Modal visible={editingName} transparent animationType="fade">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', paddingHorizontal: 28 }}>
+            <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 28 }}>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: '#1c1917', marginBottom: 4 }}>Rename your squirrel</Text>
+              <Text style={{ fontSize: 14, color: '#78716c', marginBottom: 20 }}>What would you like to call them?</Text>
+              <TextInput
+                value={nameInput}
+                onChangeText={setNameInput}
+                autoFocus
+                maxLength={20}
+                placeholderTextColor="#a8a29e"
+                placeholder="Enter a name..."
+                style={{ borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 12, padding: 14, fontSize: 16, backgroundColor: '#fdf8f0', marginBottom: 20 }}
+              />
+              <TouchableOpacity
+                onPress={saveName}
+                style={{ backgroundColor: '#d97706', borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 10 }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setEditingName(false)} style={{ padding: 12, alignItems: 'center' }}>
+                <Text style={{ color: '#a8a29e' }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         {/* Medications */}
         <View style={{ marginBottom: 20 }}>

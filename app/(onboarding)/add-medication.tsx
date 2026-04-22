@@ -68,8 +68,8 @@ export default function AddMedication() {
 
       // Initialize acorn balance + streak
       await Promise.all([
-        supabase.from('acorn_balance').upsert({ user_id: user.id, balance: 0, lifetime_earned: 0 }),
-        supabase.from('streaks').upsert({ user_id: user.id, current_streak: 0, longest_streak: 0 }),
+        supabase.from('acorn_balance').upsert({ user_id: user.id, balance: 0, lifetime_earned: 0 }, { onConflict: 'user_id' }),
+        supabase.from('streaks').upsert({ user_id: user.id, current_streak: 0, longest_streak: 0 }, { onConflict: 'user_id' }),
       ])
 
       await AsyncStorage.setItem('onboarding_med_id', med.id)
