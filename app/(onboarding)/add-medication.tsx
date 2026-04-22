@@ -15,6 +15,7 @@ export default function AddMedication() {
   const setOnboardingDone = useAuthStore((s) => s.setOnboardingDone)
   const [name, setName] = useState('')
   const [dose, setDose] = useState('')
+  const [notes, setNotes] = useState('')
   const [color, setColor] = useState(COLORS[0])
   const [loading, setLoading] = useState(false)
   const [scanning, setScanning] = useState(false)
@@ -28,13 +29,14 @@ export default function AddMedication() {
   }
 
   async function runScan(source: 'camera' | 'gallery') {
-    const uri = await pickImage(source)
-    if (!uri) return
+    const image = await pickImage(source)
+    if (!image) return
     setScanning(true)
     try {
-      const result = await extractMedInfo(uri)
+      const result = await extractMedInfo(image.base64)
       if (result.name) setName(result.name)
       if (result.dose) setDose(result.dose)
+      if (result.notes) setNotes(result.notes)
     } catch (e: any) {
       Alert.alert('Scan failed', e?.message ?? 'Could not read the label.')
     } finally {
@@ -57,7 +59,7 @@ export default function AddMedication() {
       // Insert medication
       const { data: med, error } = await supabase
         .from('medications')
-        .insert({ user_id: user.id, name: name.trim(), dose: dose.trim() || null, color })
+        .insert({ user_id: user.id, name: name.trim(), dose: dose.trim() || null, notes: notes.trim() || null, color })
         .select()
         .single()
 
@@ -127,7 +129,22 @@ export default function AddMedication() {
           placeholderTextColor="#a8a29e"
           style={{
             borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 12,
-            padding: 14, fontSize: 15, backgroundColor: '#fff', marginBottom: 24
+            padding: 14, fontSize: 15, backgroundColor: '#fff', marginBottom: 16
+          }}
+        />
+
+        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 6 }}>Additional info (optional)</Text>
+        <TextInput
+          value={notes}
+          onChangeText={setNotes}
+          placeholder="e.g. Take with food. Prescribed by Dr. Smith."
+          placeholderTextColor="#a8a29e"
+          multiline
+          numberOfLines={3}
+          style={{
+            borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 12,
+            padding: 14, fontSize: 15, backgroundColor: '#fff', marginBottom: 24,
+            minHeight: 80, textAlignVertical: 'top',
           }}
         />
 

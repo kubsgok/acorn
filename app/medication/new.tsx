@@ -21,6 +21,7 @@ export default function NewMedication() {
   const user = useAuthStore((s) => s.user)
   const [name, setName] = useState('')
   const [dose, setDose] = useState('')
+  const [notes, setNotes] = useState('')
   const [color, setColor] = useState(COLORS[0])
   const [times, setTimes] = useState<Date[]>([new Date()])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
@@ -36,13 +37,14 @@ export default function NewMedication() {
   }
 
   async function runScan(source: 'camera' | 'gallery') {
-    const uri = await pickImage(source)
-    if (!uri) return
+    const image = await pickImage(source)
+    if (!image) return
     setScanning(true)
     try {
-      const result = await extractMedInfo(uri)
+      const result = await extractMedInfo(image.base64)
       if (result.name) setName(result.name)
       if (result.dose) setDose(result.dose)
+      if (result.notes) setNotes(result.notes)
     } catch (e: any) {
       Alert.alert('Scan failed', e?.message ?? 'Could not read the label.')
     } finally {
@@ -57,7 +59,7 @@ export default function NewMedication() {
 
     const { data: med, error } = await supabase
       .from('medications')
-      .insert({ user_id: user.id, name: name.trim(), dose: dose.trim(), color })
+      .insert({ user_id: user.id, name: name.trim(), dose: dose.trim() || null, notes: notes.trim() || null, color })
       .select().single()
 
     if (error) { Alert.alert('Error', error.message); setLoading(false); return }
@@ -108,7 +110,21 @@ export default function NewMedication() {
         <TextInput
           value={dose} onChangeText={setDose}
           placeholder="e.g. 500mg" placeholderTextColor="#a8a29e"
-          style={{ borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 12, padding: 14, fontSize: 15, backgroundColor: '#fff', marginBottom: 20 }}
+          style={{ borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 12, padding: 14, fontSize: 15, backgroundColor: '#fff', marginBottom: 16 }}
+        />
+
+        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 6 }}>Additional info (optional)</Text>
+        <TextInput
+          value={notes} onChangeText={setNotes}
+          placeholder="e.g. Take with food. Prescribed by Dr. Smith."
+          placeholderTextColor="#a8a29e"
+          multiline
+          numberOfLines={3}
+          style={{
+            borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 12,
+            padding: 14, fontSize: 15, backgroundColor: '#fff', marginBottom: 20,
+            minHeight: 80, textAlignVertical: 'top',
+          }}
         />
 
         <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>Color</Text>

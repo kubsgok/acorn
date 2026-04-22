@@ -1,8 +1,12 @@
 import * as ImagePicker from 'expo-image-picker'
-import * as FileSystem from 'expo-file-system'
 import { Alert, Linking, Platform } from 'react-native'
 
-export async function pickImage(source: 'camera' | 'gallery'): Promise<string | null> {
+export interface PickedImage {
+  uri: string
+  base64: string
+}
+
+export async function pickImage(source: 'camera' | 'gallery'): Promise<PickedImage | null> {
   try {
     if (source === 'camera') {
       const { granted } = await ImagePicker.requestCameraPermissionsAsync()
@@ -20,9 +24,11 @@ export async function pickImage(source: 'camera' | 'gallery'): Promise<string | 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: 'images',
         allowsEditing: true,
+        base64: true,
         quality: 0.8,
       })
-      return result.canceled ? null : result.assets[0].uri
+      if (result.canceled || !result.assets[0].base64) return null
+      return { uri: result.assets[0].uri, base64: result.assets[0].base64 }
     } else {
       const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (!granted) {
@@ -39,9 +45,11 @@ export async function pickImage(source: 'camera' | 'gallery'): Promise<string | 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: 'images',
         allowsEditing: true,
+        base64: true,
         quality: 0.8,
       })
-      return result.canceled ? null : result.assets[0].uri
+      if (result.canceled || !result.assets[0].base64) return null
+      return { uri: result.assets[0].uri, base64: result.assets[0].base64 }
     }
   } catch (err) {
     console.error('Image pick error:', err)
@@ -52,15 +60,12 @@ export async function pickImage(source: 'camera' | 'gallery'): Promise<string | 
 export interface MedScanResult {
   name: string | null
   dose: string | null
+  notes: string | null
 }
 
-export async function extractMedInfo(imageUri: string): Promise<MedScanResult> {
+export async function extractMedInfo(base64: string): Promise<MedScanResult> {
   const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY is not set.')
-
-  const base64 = await FileSystem.readAsStringAsync(imageUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  })
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -82,7 +87,7 @@ export async function extractMedInfo(imageUri: string): Promise<MedScanResult> {
             },
             {
               type: 'text',
-              text: 'Extract the medication name and dosage from this label. Return ONLY valid JSON with keys "name" and "dose". Example: {"name":"Metformin","dose":"500mg"}. Use null for any field you cannot identify.',
+              text: 'Extract medication details from this label. Return ONLY valid JSON with keys "name", "dose", and "notes". Put any additional info (instructions, warnings, doctor/pharmacy info, frequency, duration) into "notes" as a short summary. Example: {"name":"Metformin","dose":"500mg","notes":"Take with food. Prescribed by Dr. Smith."}. Use null for any field you cannot identify.',
             },
           ],
         },
