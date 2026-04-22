@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { View, Text, TouchableOpacity, Alert, ScrollView, Platform } from 'react-native'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -20,6 +20,15 @@ export default function SetSchedule() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    AsyncStorage.getItem('onboarding_frequency').then((freq) => {
+      if (freq === 'daily') setSelectedDays([0, 1, 2, 3, 4, 5, 6])
+      else if (freq === 'weekdays') setSelectedDays([1, 2, 3, 4, 5])
+      else if (freq === 'weekends') setSelectedDays([0, 6])
+      AsyncStorage.removeItem('onboarding_frequency')
+    })
+  }, [])
 
   function addTime() {
     const newDate = new Date()
@@ -90,7 +99,7 @@ export default function SetSchedule() {
 
         {/* Time slots */}
         <Text style={{ fontSize: 14, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>
-          Reminder times
+          Notification times
         </Text>
 
         {times.length === 0 && (

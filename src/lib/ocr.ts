@@ -61,6 +61,7 @@ export interface MedScanResult {
   name: string | null
   dose: string | null
   notes: string | null
+  frequency: 'daily' | 'weekdays' | 'weekends' | null
 }
 
 export async function extractMedInfo(base64: string): Promise<MedScanResult> {
@@ -87,7 +88,7 @@ export async function extractMedInfo(base64: string): Promise<MedScanResult> {
             },
             {
               type: 'text',
-              text: 'Extract medication details from this label. Return ONLY valid JSON with keys "name", "dose", and "notes". Put any additional info (instructions, warnings, doctor/pharmacy info, frequency, duration) into "notes" as a short summary. Example: {"name":"Metformin","dose":"500mg","notes":"Take with food. Prescribed by Dr. Smith."}. Use null for any field you cannot identify.',
+              text: 'Extract medication details from this label. Return ONLY valid JSON with keys "name", "dose", "notes", and "frequency". For "frequency": return "daily" if taken every day, "weekdays" if Monday–Friday only, "weekends" if Saturday–Sunday only, or null if unclear. Put any other info (instructions, warnings, doctor/pharmacy info, duration) into "notes" as a short summary. Example: {"name":"Metformin","dose":"500mg","notes":"Take with food. Prescribed by Dr. Smith.","frequency":"daily"}. Use null for any field you cannot identify.',
             },
           ],
         },

@@ -37,6 +37,7 @@ export default function AddMedication() {
       if (result.name) setName(result.name)
       if (result.dose) setDose(result.dose)
       if (result.notes) setNotes(result.notes)
+      if (result.frequency) await AsyncStorage.setItem('onboarding_frequency', result.frequency)
     } catch (e: any) {
       Alert.alert('Scan failed', e?.message ?? 'Could not read the label.')
     } finally {

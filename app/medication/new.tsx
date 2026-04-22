@@ -47,6 +47,9 @@ export default function NewMedication() {
       if (result.name) setName(result.name)
       if (result.dose) setDose(result.dose)
       if (result.notes) setNotes(result.notes)
+      if (result.frequency === 'daily') setSelectedDays([0, 1, 2, 3, 4, 5, 6])
+      else if (result.frequency === 'weekdays') setSelectedDays([1, 2, 3, 4, 5])
+      else if (result.frequency === 'weekends') setSelectedDays([0, 6])
     } catch (e: any) {
       Alert.alert('Scan failed', e?.message ?? 'Could not read the label.')
     } finally {
@@ -76,11 +79,11 @@ export default function NewMedication() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fdf8f0' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, marginBottom: 8 }}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 12 }}>
+      <View style={{ paddingHorizontal: 20, paddingTop: 16, marginBottom: 8, height: 44, justifyContent: 'center' }}>
+        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1c1917', textAlign: 'center' }}>Add Medication</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ position: 'absolute', left: 20, top: 16 }}>
           <Text style={{ color: '#d97706', fontSize: 16 }}>← Back</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1c1917' }}>Add Medication</Text>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
@@ -144,7 +147,7 @@ export default function NewMedication() {
           <DayPicker selected={selectedDays} onChange={setSelectedDays} />
         </View>
 
-        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>Schedule</Text>
+        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>Notification times</Text>
         {times.map((time, index) => (
           <View key={index} style={{ marginBottom: 12 }}>
             <View style={{
@@ -155,11 +158,9 @@ export default function NewMedication() {
                 <Text style={{ fontSize: 16, fontWeight: '600', color: '#1c1917' }}>{formatTime(time)}</Text>
                 <Text style={{ fontSize: 12, color: '#a8a29e', marginTop: 2 }}>Tap to change</Text>
               </TouchableOpacity>
-              {times.length > 1 && (
-                <TouchableOpacity onPress={() => setTimes((p) => p.filter((_, i) => i !== index))}>
-                  <Text style={{ color: '#dc2626', fontSize: 18 }}>×</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity onPress={() => setTimes((p) => p.filter((_, i) => i !== index))} style={{ padding: 4 }}>
+                <Text style={{ color: '#dc2626', fontSize: 20 }}>×</Text>
+              </TouchableOpacity>
             </View>
             {editingIndex === index && (
               <DateTimePicker
@@ -180,8 +181,9 @@ export default function NewMedication() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={handleSave} disabled={loading}
-          style={{ backgroundColor: '#d97706', borderRadius: 14, padding: 16, alignItems: 'center', opacity: loading ? 0.7 : 1 }}
+          onPress={handleSave}
+          disabled={loading || selectedDays.length === 0}
+          style={{ backgroundColor: '#d97706', borderRadius: 14, padding: 16, alignItems: 'center', opacity: (loading || selectedDays.length === 0) ? 0.4 : 1 }}
         >
           <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{loading ? 'Saving...' : 'Save medication'}</Text>
         </TouchableOpacity>
