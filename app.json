@@ -25,6 +25,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "scheme": "acorn",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-notifications",
+      [
+        "expo-camera",
+        { "cameraPermission": "Allow Acorn to access your camera to scan medication labels." }
+      ]
+    ]
   }
 }
