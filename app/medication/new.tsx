@@ -6,6 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker'
 import { supabase } from '../../src/lib/supabase'
 import { useAuthStore } from '../../src/stores/authStore'
 import { pickImage, extractMedInfo } from '../../src/lib/ocr'
+import DayPicker from '../../src/components/DayPicker'
 
 const COLORS = ['#d97706', '#16a34a', '#2563eb', '#9333ea', '#dc2626', '#0891b2']
 
@@ -23,6 +24,7 @@ export default function NewMedication() {
   const [dose, setDose] = useState('')
   const [notes, setNotes] = useState('')
   const [color, setColor] = useState(COLORS[0])
+  const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [times, setTimes] = useState<Date[]>([new Date()])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
@@ -54,12 +56,13 @@ export default function NewMedication() {
 
   async function handleSave() {
     if (!name.trim()) { Alert.alert('Enter a medication name.'); return }
+    if (selectedDays.length === 0) { Alert.alert('Select at least one day', 'Choose which days you take this medication.'); return }
     if (!user) return
     setLoading(true)
 
     const { data: med, error } = await supabase
       .from('medications')
-      .insert({ user_id: user.id, name: name.trim(), dose: dose.trim() || null, notes: notes.trim() || null, color })
+      .insert({ user_id: user.id, name: name.trim(), dose: dose.trim() || null, notes: notes.trim() || null, color, days_of_week: JSON.stringify(selectedDays) })
       .select().single()
 
     if (error) { Alert.alert('Error', error.message); setLoading(false); return }
@@ -134,6 +137,11 @@ export default function NewMedication() {
               style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c, borderWidth: color === c ? 3 : 0, borderColor: '#1c1917' }}
             />
           ))}
+        </View>
+
+        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>Which days?</Text>
+        <View style={{ marginBottom: 24 }}>
+          <DayPicker selected={selectedDays} onChange={setSelectedDays} />
         </View>
 
         <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>Schedule</Text>

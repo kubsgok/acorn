@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { supabase } from '../../src/lib/supabase'
+import DayPicker from '../../src/components/DayPicker'
 
 function formatTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -14,28 +15,11 @@ function toTimeString(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:00`
 }
 
-const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6]
-
 export default function SetSchedule() {
   const [times, setTimes] = useState<Date[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
-  const [selectedDays, setSelectedDays] = useState<number[]>(ALL_DAYS)
+  const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [loading, setLoading] = useState(false)
-
-  const isDaily = selectedDays.length === 7
-
-  function toggleDay(day: number) {
-    setSelectedDays((prev) =>
-      prev.includes(day)
-        ? prev.length > 1 ? prev.filter((d) => d !== day) : prev
-        : [...prev, day].sort()
-    )
-  }
-
-  function setDaily() {
-    setSelectedDays(ALL_DAYS)
-  }
 
   function addTime() {
     const newDate = new Date()
@@ -54,6 +38,10 @@ export default function SetSchedule() {
   }
 
   async function handleContinue() {
+    if (selectedDays.length === 0) {
+      Alert.alert('Select at least one day', 'Choose which days you take this medication.')
+      return
+    }
     if (times.length === 0) {
       Alert.alert('Add at least one time', 'Tap "+ Add a time" to set when you take this medication.')
       return
@@ -92,43 +80,13 @@ export default function SetSchedule() {
           Set a time for each dose.
         </Text>
 
-        {/* Frequency selector */}
+        {/* Day picker */}
         <Text style={{ fontSize: 14, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>
           Which days?
         </Text>
-        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 16 }}>
-          {DAY_LABELS.map((label, i) => {
-            const active = selectedDays.includes(i)
-            return (
-              <TouchableOpacity
-                key={i}
-                onPress={() => toggleDay(i)}
-                style={{
-                  flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
-                  backgroundColor: active ? '#d97706' : '#fff',
-                  borderWidth: 1, borderColor: active ? '#d97706' : '#e7e5e4',
-                }}
-              >
-                <Text style={{ fontWeight: '700', fontSize: 13, color: active ? '#fff' : '#a8a29e' }}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            )
-          })}
+        <View style={{ marginBottom: 32 }}>
+          <DayPicker selected={selectedDays} onChange={setSelectedDays} />
         </View>
-        <TouchableOpacity
-          onPress={setDaily}
-          style={{
-            alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 7,
-            borderRadius: 20, marginBottom: 32,
-            backgroundColor: isDaily ? '#d97706' : '#fff',
-            borderWidth: 1, borderColor: isDaily ? '#d97706' : '#e7e5e4',
-          }}
-        >
-          <Text style={{ fontWeight: '600', fontSize: 13, color: isDaily ? '#fff' : '#44403c' }}>
-            Daily
-          </Text>
-        </TouchableOpacity>
 
         {/* Time slots */}
         <Text style={{ fontSize: 14, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>
