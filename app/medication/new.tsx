@@ -3,19 +3,42 @@ import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Platform, A
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import DateTimePicker from '@react-native-community/datetimepicker'
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
 import { useAuthStore } from '../../src/stores/authStore'
 import { pickImage, extractMedInfo } from '../../src/lib/ocr'
-import DayPicker from '../../src/components/DayPicker'
 
-const COLORS = ['#d97706', '#16a34a', '#2563eb', '#9333ea', '#dc2626', '#0891b2']
+const COLORS = [
+  '#f59e0b', // amber-500
+  '#10b981', // emerald-500
+  '#3b82f6', // blue-500
+  '#f43f5e', // rose-500
+  '#6366f1', // indigo-500
+  '#fb923c', // orange-400
+]
+
+const DAYS = [
+  { label: 'Su', value: 0 },
+  { label: 'Mo', value: 1 },
+  { label: 'Tu', value: 2 },
+  { label: 'We', value: 3 },
+  { label: 'Th', value: 4 },
+  { label: 'Fr', value: 5 },
+  { label: 'Sa', value: 6 },
+]
 
 function toTimeString(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:00`
 }
 
-function formatTime(date: Date) {
+function formatDisplayTime(date: Date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function defaultTime(hour = 8) {
+  const d = new Date()
+  d.setHours(hour, 0, 0, 0)
+  return d
 }
 
 export default function NewMedication() {
@@ -25,10 +48,20 @@ export default function NewMedication() {
   const [notes, setNotes] = useState('')
   const [color, setColor] = useState(COLORS[0])
   const [selectedDays, setSelectedDays] = useState<number[]>([])
-  const [times, setTimes] = useState<Date[]>([new Date()])
+  const [times, setTimes] = useState<Date[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
   const [scanning, setScanning] = useState(false)
+
+  const isAllDays = selectedDays.length === 7
+
+  function toggleDay(day: number) {
+    if (selectedDays.includes(day)) {
+      setSelectedDays(selectedDays.filter((d) => d !== day).sort((a, b) => a - b))
+    } else {
+      setSelectedDays([...selectedDays, day].sort((a, b) => a - b))
+    }
+  }
 
   function handleScan() {
     Alert.alert('Scan medication label', 'Choose a source', [
@@ -65,127 +98,277 @@ export default function NewMedication() {
 
     const { data: med, error } = await supabase
       .from('medications')
-      .insert({ user_id: user.id, name: name.trim(), dose: dose.trim() || null, notes: notes.trim() || null, color, days_of_week: JSON.stringify(selectedDays) })
+      .insert({
+        user_id: user.id,
+        name: name.trim(),
+        dose: dose.trim() || null,
+        notes: notes.trim() || null,
+        color,
+        days_of_week: JSON.stringify(selectedDays),
+      })
       .select().single()
 
     if (error) { Alert.alert('Error', error.message); setLoading(false); return }
 
-    const rows = times.map((t) => ({ medication_id: med.id, time_of_day: toTimeString(t) }))
-    await supabase.from('medication_schedules').insert(rows)
+    if (times.length > 0) {
+      const rows = times.map((t) => ({ medication_id: med.id, time_of_day: toTimeString(t) }))
+      await supabase.from('medication_schedules').insert(rows)
+    }
 
     setLoading(false)
     router.back()
   }
 
+  const canSave = name.trim().length > 0 && selectedDays.length > 0 && !loading
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fdf8f0' }}>
-      <View style={{ paddingHorizontal: 20, paddingTop: 16, marginBottom: 8, height: 44, justifyContent: 'center' }}>
-        <Text style={{ fontSize: 18, fontWeight: '700', color: '#1c1917', textAlign: 'center' }}>Add Medication</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ position: 'absolute', left: 20, top: 16 }}>
-          <Text style={{ color: '#d97706', fontSize: 16 }}>← Back</Text>
-        </TouchableOpacity>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff8f5' }} edges={['top']}>
+      {/* Header */}
+      <View style={{
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        paddingHorizontal: 20, paddingVertical: 12,
+        borderBottomWidth: 1, borderBottomColor: '#e7e5e4',
+        backgroundColor: '#fff8f5',
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#78716c" />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#b15f00' }}>Add Medication</Text>
+        </View>
+        <MaterialCommunityIcons name="help-circle-outline" size={22} color="#78716c" />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 48 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Scan Label button */}
         <TouchableOpacity
           onPress={handleScan}
           disabled={scanning}
+          activeOpacity={0.85}
           style={{
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-            borderWidth: 1.5, borderColor: '#d97706', borderRadius: 12, borderStyle: 'dashed',
-            padding: 14, marginTop: 8, marginBottom: 20, opacity: scanning ? 0.6 : 1,
+            height: 120,
+            borderWidth: 2, borderColor: '#dbc2b0', borderStyle: 'dashed',
+            borderRadius: 16, backgroundColor: '#fff',
+            alignItems: 'center', justifyContent: 'center', gap: 8,
+            marginBottom: 28, opacity: scanning ? 0.6 : 1,
           }}
         >
           {scanning
-            ? <ActivityIndicator size="small" color="#d97706" />
-            : <Text style={{ fontSize: 18 }}>📷</Text>
+            ? <ActivityIndicator size="large" color="#b15f00" />
+            : <>
+                <MaterialCommunityIcons name="camera-outline" size={32} color="#b15f00" />
+                <Text style={{ fontSize: 17, fontWeight: '700', color: '#b15f00' }}>Scan Label</Text>
+              </>
           }
-          <Text style={{ color: '#d97706', fontWeight: '600', fontSize: 15 }}>
-            {scanning ? 'Scanning label...' : 'Scan medication label'}
-          </Text>
         </TouchableOpacity>
 
-        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 6, marginTop: 4 }}>Name</Text>
-        <TextInput
-          value={name} onChangeText={setName}
-          placeholder="e.g. Metformin" placeholderTextColor="#a8a29e"
-          style={{ borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 12, padding: 14, fontSize: 15, backgroundColor: '#fff', marginBottom: 16 }}
-        />
-
-        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 6 }}>Dose (optional)</Text>
-        <TextInput
-          value={dose} onChangeText={setDose}
-          placeholder="e.g. 500mg" placeholderTextColor="#a8a29e"
-          style={{ borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 12, padding: 14, fontSize: 15, backgroundColor: '#fff', marginBottom: 16 }}
-        />
-
-        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 6 }}>Additional info (optional)</Text>
-        <TextInput
-          value={notes} onChangeText={setNotes}
-          placeholder="e.g. Take with food. Prescribed by Dr. Smith."
-          placeholderTextColor="#a8a29e"
-          multiline
-          numberOfLines={3}
-          style={{
-            borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 12,
-            padding: 14, fontSize: 15, backgroundColor: '#fff', marginBottom: 20,
-            minHeight: 80, textAlignVertical: 'top',
-          }}
-        />
-
-        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>Color</Text>
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
-          {COLORS.map((c) => (
-            <TouchableOpacity key={c} onPress={() => setColor(c)}
-              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: c, borderWidth: color === c ? 3 : 0, borderColor: '#1c1917' }}
+        {/* Basic info */}
+        <View style={{ gap: 16, marginBottom: 24 }}>
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#554336', letterSpacing: 0.3, marginLeft: 4 }}>
+              Medication Name
+            </Text>
+            <TextInput
+              value={name} onChangeText={setName}
+              placeholder="e.g. Vitamin D3" placeholderTextColor="#a8a29e"
+              style={{
+                backgroundColor: '#fff', borderWidth: 1, borderColor: '#dbc2b0',
+                borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
+                fontSize: 15, color: '#1f1b17',
+              }}
             />
-          ))}
-        </View>
-
-        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>Which days?</Text>
-        <View style={{ marginBottom: 24 }}>
-          <DayPicker selected={selectedDays} onChange={setSelectedDays} />
-        </View>
-
-        <Text style={{ fontSize: 13, fontWeight: '600', color: '#44403c', marginBottom: 12 }}>Notification times</Text>
-        {times.map((time, index) => (
-          <View key={index} style={{ marginBottom: 12 }}>
-            <View style={{
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-              backgroundColor: '#fff', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#e7e5e4'
-            }}>
-              <TouchableOpacity onPress={() => setEditingIndex(editingIndex === index ? null : index)}>
-                <Text style={{ fontSize: 16, fontWeight: '600', color: '#1c1917' }}>{formatTime(time)}</Text>
-                <Text style={{ fontSize: 12, color: '#a8a29e', marginTop: 2 }}>Tap to change</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setTimes((p) => p.filter((_, i) => i !== index))} style={{ padding: 4 }}>
-                <Text style={{ color: '#dc2626', fontSize: 20 }}>×</Text>
-              </TouchableOpacity>
-            </View>
-            {editingIndex === index && (
-              <DateTimePicker
-                value={time} mode="time"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(_, date) => { if (date) setTimes((p) => p.map((t, i) => i === index ? date : t)) }}
-                style={{ backgroundColor: '#fff' }}
-              />
-            )}
           </View>
-        ))}
 
-        <TouchableOpacity
-          onPress={() => setTimes((p) => [...p, new Date()])}
-          style={{ borderWidth: 1.5, borderColor: '#d97706', borderRadius: 12, borderStyle: 'dashed', padding: 14, alignItems: 'center', marginBottom: 32 }}
-        >
-          <Text style={{ color: '#d97706', fontWeight: '600' }}>+ Add another time</Text>
-        </TouchableOpacity>
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#554336', letterSpacing: 0.3, marginLeft: 4 }}>
+              Dose
+            </Text>
+            <TextInput
+              value={dose} onChangeText={setDose}
+              placeholder="e.g. 1000 IU" placeholderTextColor="#a8a29e"
+              style={{
+                backgroundColor: '#fff', borderWidth: 1, borderColor: '#dbc2b0',
+                borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
+                fontSize: 15, color: '#1f1b17',
+              }}
+            />
+          </View>
 
+          <View style={{ gap: 6 }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#554336', letterSpacing: 0.3, marginLeft: 4 }}>
+              Additional info / notes
+            </Text>
+            <TextInput
+              value={notes} onChangeText={setNotes}
+              placeholder="Take with food, avoid caffeine..."
+              placeholderTextColor="#a8a29e"
+              multiline numberOfLines={3}
+              style={{
+                backgroundColor: '#fff', borderWidth: 1, borderColor: '#dbc2b0',
+                borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
+                fontSize: 15, color: '#1f1b17', minHeight: 88, textAlignVertical: 'top',
+              }}
+            />
+          </View>
+        </View>
+
+        {/* Color picker */}
+        <View style={{ gap: 10, marginBottom: 24 }}>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: '#554336', letterSpacing: 0.3, marginLeft: 4 }}>
+            Color
+          </Text>
+          <View style={{
+            backgroundColor: '#fff', borderRadius: 20,
+            borderWidth: 1, borderColor: '#dbc2b0',
+            padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            {COLORS.map((c) => {
+              const active = color === c
+              return (
+                <TouchableOpacity
+                  key={c}
+                  onPress={() => setColor(c)}
+                  style={{
+                    width: 40, height: 40, borderRadius: 20,
+                    backgroundColor: c,
+                    borderWidth: active ? 3 : 0,
+                    borderColor: '#fff',
+                    shadowColor: active ? c : 'transparent',
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: active ? 0.6 : 0,
+                    shadowRadius: 6,
+                    elevation: active ? 4 : 0,
+                  }}
+                />
+              )
+            })}
+          </View>
+        </View>
+
+        {/* Day picker */}
+        <View style={{ gap: 10, marginBottom: 24 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#554336', letterSpacing: 0.3, marginLeft: 4 }}>
+              Day Picker
+            </Text>
+            <TouchableOpacity
+              onPress={() => setSelectedDays([0, 1, 2, 3, 4, 5, 6])}
+              style={{
+                backgroundColor: '#fef3c7', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 99,
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#b15f00' }}>Every day</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {DAYS.map(({ label, value }) => {
+              const active = selectedDays.includes(value)
+              return (
+                <TouchableOpacity
+                  key={value}
+                  onPress={() => toggleDay(value)}
+                  style={{
+                    flex: 1, aspectRatio: 1, borderRadius: 999,
+                    alignItems: 'center', justifyContent: 'center',
+                    backgroundColor: active ? '#d97706' : '#fff',
+                    borderWidth: 1,
+                    borderColor: active ? '#d97706' : '#dbc2b0',
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: active ? '#fff' : '#a8a29e' }}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+        </View>
+
+        {/* Notification times */}
+        <View style={{ gap: 10, marginBottom: 32 }}>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: '#554336', letterSpacing: 0.3, marginLeft: 4 }}>
+            Notification Times
+          </Text>
+
+          <View style={{ gap: 8 }}>
+            {times.map((time, index) => (
+              <View key={index}>
+                <View style={{
+                  backgroundColor: '#fff', borderRadius: 14,
+                  borderWidth: 1, borderColor: '#dbc2b0',
+                  paddingHorizontal: 16, paddingVertical: 14,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <TouchableOpacity
+                    onPress={() => setEditingIndex(editingIndex === index ? null : index)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}
+                  >
+                    <MaterialCommunityIcons name="clock-outline" size={22} color="#b15f00" />
+                    <Text style={{ fontSize: 18, fontWeight: '600', color: '#1f1b17' }}>
+                      {formatDisplayTime(time)}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setTimes((p) => p.filter((_, i) => i !== index))
+                      if (editingIndex === index) setEditingIndex(null)
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <MaterialCommunityIcons name="minus-circle-outline" size={22} color="#ba1a1a" />
+                  </TouchableOpacity>
+                </View>
+                {editingIndex === index && (
+                  <DateTimePicker
+                    value={time} mode="time"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={(_, date) => {
+                      if (date) setTimes((p) => p.map((t, i) => i === index ? date : t))
+                    }}
+                    style={{ backgroundColor: '#fff' }}
+                  />
+                )}
+              </View>
+            ))}
+
+            {/* Add notification button */}
+            <TouchableOpacity
+              onPress={() => setTimes((p) => [...p, defaultTime(8 + p.length * 8)])}
+              style={{
+                borderWidth: 1.5, borderColor: '#dbc2b0', borderStyle: 'dashed',
+                borderRadius: 14, paddingVertical: 14,
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                backgroundColor: '#fcf2eb',
+              }}
+            >
+              <MaterialCommunityIcons name="plus" size={20} color="#554336" />
+              <Text style={{ fontSize: 12, fontWeight: '600', color: '#554336', letterSpacing: 0.3 }}>
+                Add Notification
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Save button */}
         <TouchableOpacity
           onPress={handleSave}
-          disabled={loading || selectedDays.length === 0}
-          style={{ backgroundColor: '#d97706', borderRadius: 14, padding: 16, alignItems: 'center', opacity: (loading || selectedDays.length === 0) ? 0.4 : 1 }}
+          disabled={!canSave}
+          activeOpacity={0.85}
+          style={{
+            backgroundColor: '#b15f00', borderRadius: 20,
+            paddingVertical: 16, alignItems: 'center',
+            opacity: canSave ? 1 : 0.4,
+            shadowColor: '#b15f00', shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+          }}
         >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{loading ? 'Saving...' : 'Save medication'}</Text>
+          <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
+            {loading ? 'Saving...' : 'Save Medication'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

@@ -6,8 +6,10 @@ import { useAuthStore } from '../src/stores/authStore'
 
 export default function RootLayout() {
   const setSession = useAuthStore((s) => s.setSession)
+  const loadAvatar = useAuthStore((s) => s.loadAvatar)
 
   useEffect(() => {
+    loadAvatar()
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
     })
@@ -18,11 +20,13 @@ export default function RootLayout() {
   }, [setSession])
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, gestureEnabled: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(onboarding)" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="medication/new" options={{ gestureEnabled: true }} />
+      <Stack.Screen name="chat" options={{ gestureEnabled: true }} />
     </Stack>
   )
 }

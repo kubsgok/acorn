@@ -3,8 +3,15 @@ import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Notifications from 'expo-notifications'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
+
+const BULLETS = [
+  { icon: 'clock-outline' as const, text: 'A reminder at your scheduled time' },
+  { icon: 'bell-ring-outline' as const, text: 'A follow-up 2 hours later if not logged' },
+  { icon: 'tune-variant' as const, text: 'No more than 2 notifications per dose' },
+]
 
 export default function NotificationsScreen() {
   const user = useAuthStore((s) => s.user)
@@ -17,10 +24,6 @@ export default function NotificationsScreen() {
     await finish()
   }
 
-  async function handleSkip() {
-    await finish()
-  }
-
   async function finish() {
     if (user) await addAcorns(user.id, 10)
     await AsyncStorage.setItem('onboarding_done', 'true')
@@ -29,27 +32,55 @@ export default function NotificationsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fdf8f0' }}>
-      <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 48 }}>
-        <Text style={{ fontSize: 40 }}>🔔</Text>
-        <Text style={{ fontSize: 26, fontWeight: '700', color: '#1c1917', marginTop: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff8f5' }} edges={['top', 'bottom']}>
+      <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 56 }}>
+
+        {/* Header */}
+        <View style={{
+          width: 72, height: 72, borderRadius: 24,
+          backgroundColor: '#fef3c7',
+          alignItems: 'center', justifyContent: 'center',
+          marginBottom: 24,
+        }}>
+          <MaterialCommunityIcons name="bell-outline" size={34} color="#b15f00" />
+        </View>
+        <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.3 }}>
           Let {squirrelName} nudge you
         </Text>
-        <Text style={{ fontSize: 15, color: '#78716c', marginTop: 8, marginBottom: 40, lineHeight: 24 }}>
-          {squirrelName} will send you a reminder when it's time to take your medication, and check in if you haven't logged it yet.
+        <Text style={{ fontSize: 15, color: '#554336', marginTop: 8, marginBottom: 32, lineHeight: 22 }}>
+          {squirrelName} will remind you when it's time to take your medication.
         </Text>
 
+        {/* Info card */}
         <View style={{
           backgroundColor: '#fff', borderRadius: 16, padding: 20,
-          borderWidth: 1, borderColor: '#e7e5e4', marginBottom: 32
+          borderWidth: 1, borderColor: '#dbc2b0', marginBottom: 40, gap: 16,
         }}>
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#44403c', marginBottom: 8 }}>
-            What to expect:
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#554336', letterSpacing: 0.3, textTransform: 'uppercase' }}>
+            What to expect
           </Text>
-          <Text style={{ fontSize: 14, color: '#78716c', lineHeight: 22 }}>
-            • A reminder at your scheduled time{'\n'}
-            • A follow-up 2 hours later if you haven't logged it{'\n'}
-            • No more than 2 notifications per medication per day
+          {BULLETS.map((b) => (
+            <View key={b.text} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <View style={{
+                width: 36, height: 36, borderRadius: 10,
+                backgroundColor: '#fef3c7',
+                alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <MaterialCommunityIcons name={b.icon} size={18} color="#b15f00" />
+              </View>
+              <Text style={{ fontSize: 14, color: '#554336', flex: 1, lineHeight: 20 }}>{b.text}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Bonus acorn reward */}
+        <View style={{
+          backgroundColor: '#fef3c7', borderRadius: 14, padding: 14,
+          flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 32,
+        }}>
+          <Text style={{ fontSize: 24 }}>🌰</Text>
+          <Text style={{ fontSize: 14, color: '#8d4b00', fontWeight: '600', flex: 1 }}>
+            You'll earn 10 bonus acorns for finishing setup!
           </Text>
         </View>
 
@@ -57,13 +88,19 @@ export default function NotificationsScreen() {
 
         <TouchableOpacity
           onPress={handleAllow}
-          style={{ backgroundColor: '#d97706', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 12 }}
+          activeOpacity={0.85}
+          style={{
+            backgroundColor: '#b15f00', borderRadius: 20,
+            paddingVertical: 16, alignItems: 'center', marginBottom: 12,
+            shadowColor: '#b15f00', shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+          }}
         >
           <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Allow notifications</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={handleSkip} style={{ padding: 12, alignItems: 'center', marginBottom: 8 }}>
-          <Text style={{ color: '#a8a29e', fontSize: 14 }}>Skip for now</Text>
+        <TouchableOpacity onPress={finish} style={{ padding: 12, alignItems: 'center', marginBottom: 8 }}>
+          <Text style={{ color: '#a8a29e', fontSize: 14, fontWeight: '600' }}>Skip for now</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
