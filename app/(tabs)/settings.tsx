@@ -162,7 +162,7 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <Text style={{ fontSize: 22, fontWeight: '800', color: '#b15f00', letterSpacing: -0.5 }}>Acorn</Text>
         </View>
-        <TouchableOpacity style={{ padding: 8, borderRadius: 20 }}>
+        <TouchableOpacity style={{ padding: 8, borderRadius: 20 }} onPress={() => router.push('/(tabs)/calendar')}>
           <MaterialCommunityIcons name="calendar-today" size={22} color="#b15f00" />
         </TouchableOpacity>
       </View>

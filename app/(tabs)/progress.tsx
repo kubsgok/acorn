@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Image } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, router } from 'expo-router'
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
 import { useAuthStore } from '../../src/stores/authStore'
@@ -134,7 +134,9 @@ export default function ProgressScreen() {
         <TouchableOpacity style={{
           width: 40, height: 40, borderRadius: 20,
           alignItems: 'center', justifyContent: 'center',
-        }}>
+        }}
+          onPress={() => router.push('/(tabs)/calendar')}
+        >
           <MaterialCommunityIcons name="calendar-today" size={22} color="#b15f00" />
         </TouchableOpacity>
       </View>
