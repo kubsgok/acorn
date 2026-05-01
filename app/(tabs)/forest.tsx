@@ -1,4 +1,4 @@
-import { View, Text } from 'react-native'
+import { View, Text, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAcornStore } from '../../src/stores/acornStore'
 
@@ -8,7 +8,7 @@ export default function ForestScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff8f5' }} edges={['top', 'bottom']}>
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 28 }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 28, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
 
         {/* Header */}
         <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.3 }}>
@@ -110,7 +110,7 @@ export default function ForestScreen() {
           })}
         </View>
 
-      </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
