@@ -29,7 +29,15 @@ Before this build, **the streak was never updated anywhere** — `logDose` award
 - All 5 AI-generated isometric room illustrations are in `assets/forest/stage1.png` … `stage5.png` (1254×1254, textless, consistent squirrel/room). Placeholders fully replaced.
 - ⚠️ Tier 1 (below) needs these **regenerated without the squirrel** plus new sprites — see the updated brief in `~/Downloads/acorn-forest-art-brief.md`.
 
-### Tier 1 interactive forest (new)
+### Forest v2 — furnish-your-room (newest)
+- **One empty room** (`assets/forest/room-empty.png`) replaces the five auto-furnishing stage rooms. The streak shows via the badge, ring, and progress row (no tree centerpiece — cut by design decision).
+- **Drag-and-drop decorating** (`src/components/DraggableDecoration.tsx`): tap an owned item to add it to the room, then drag it anywhere — it lifts with a shadow, free cells of the matching kind glow, and it spring-snaps to the nearest free cell with a haptic tick. Drag to the bottom-right tray (or tap it) to put it away.
+- **Isometric grid** (`src/lib/forestGrid.ts`): 14 floor cells with per-row depth scaling + painter's-algorithm ordering (items in front overlap the squirrel correctly), 4 wall spots (poster/pennant are `placement: 'wall'` in the catalog), a reserved cell for the squirrel. Positions persist to `forest_items.grid_x/grid_y`; Tier 1 slot placements migrate automatically on first load.
+- Deps added: `react-native-gesture-handler` (+ `GestureHandlerRootView` in root layout), `expo-haptics`.
+- ⚠️ Placeholder art: room-empty is currently a copy of stage 1 (has a painted sprout + pot on the floor) — see `~/Downloads/acorn-forest-art-brief.md` (v3): one image, the truly empty room. Squirrel + item sprites carry over.
+- Verified: `tsc` clean, iOS export succeeds. Device pass still needed (drag feel, cell positions, migration).
+
+### Tier 1 interactive forest (superseded by v2 scene; streak/shop/celebration logic carried over)
 - **Animated squirrel** — `src/components/ForestSquirrel.tsx`: separate sprite layered over the room; continuous idle bob, random ambient hops every 6–12s, tap → hop → opens chat. Currently renders a generated placeholder blob (`assets/forest/squirrel.png`) until real art lands.
 - **Tap-to-place decorations** — 4 floor slots defined in `src/lib/forestStages.ts` (`SLOTS`); owned-but-unplaced items show in the "Your Decorations" card → tap one → free slots pulse on the scene → tap to place. Placement persists to `forest_items.grid_x` (slot index). Tap a placed item to put it away. Placed items render as PNGs from `assets/forest/items/<item-id>.png` (placeholder tinted squares until real art).
 - **Stage-up celebration** — `src/components/StageCelebration.tsx`: when the streak crosses into a new stage, the scene does a spring pop, acorns rain, and a "Your forest grew!" banner shows (once per stage, tracked in AsyncStorage `acorn:lastCelebratedStage`).

@@ -86,6 +86,9 @@ export const SQUIRREL_ANCHORS: SquirrelAnchor[] = [
 
 export const SQUIRREL_IMAGE = require('../../assets/forest/squirrel.png')
 
+// v2 scene: one empty room the user furnishes themselves
+export const ROOM_IMAGE = require('../../assets/forest/room-empty.png')
+
 // Static require map — React Native can only bundle literal require() calls.
 export const ITEM_IMAGES: Record<string, number> = {
   'potted-plant': require('../../assets/forest/items/potted-plant.png'),
