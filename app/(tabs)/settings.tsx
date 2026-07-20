@@ -190,7 +190,7 @@ export default function SettingsScreen() {
                 backgroundColor: '#fef3c7', padding: 12, borderRadius: 14,
                 alignItems: 'center', justifyContent: 'center',
               }}>
-                <MaterialCommunityIcons name="squirrel" size={22} color="#b15f00" />
+                <Text style={{ fontSize: 22 }}>🐿️</Text>
               </View>
               <View>
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#78716c', letterSpacing: 0.3, textTransform: 'uppercase' }}>
@@ -329,7 +329,7 @@ export default function SettingsScreen() {
               alignItems: 'center', justifyContent: 'center',
               alignSelf: 'center', marginBottom: 16,
             }}>
-              <MaterialCommunityIcons name="squirrel" size={24} color="#b15f00" />
+              <Text style={{ fontSize: 24 }}>🐿️</Text>
             </View>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#1f1b17', textAlign: 'center' }}>
               Rename your squirrel

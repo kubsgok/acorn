@@ -27,6 +27,7 @@ export default function RootLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="medication/new" options={{ gestureEnabled: true }} />
       <Stack.Screen name="chat" options={{ gestureEnabled: true }} />
+      <Stack.Screen name="shop" options={{ gestureEnabled: true, presentation: 'modal' }} />
     </Stack>
   )
 }

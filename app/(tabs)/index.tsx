@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, router } from 'expo-router'
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
+import { markMissedDoses, recomputeStreak } from '../../src/lib/streaks'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
 
@@ -73,6 +74,8 @@ export default function HomeScreen() {
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999)
     const todayDay = new Date().getDay()
 
+    await markMissedDoses(user.id)
+
     const { data: existingLogs } = await supabase
       .from('medication_logs')
       .select('*, medication:medications(name, dose, color)')
@@ -124,6 +127,7 @@ export default function HomeScreen() {
     const filtered = ((allLogs ?? []) as MedLog[]).filter((l) => activeScheduleIds.has(l.schedule_id))
     setLogs(filtered)
     await loadAcorns(user.id)
+    await recomputeStreak(user.id)
     setLoading(false)
   }, [user, loadAcorns])
 
@@ -150,6 +154,10 @@ export default function HomeScreen() {
     setLogs((prev) => prev.map((l) => l.id === log.id ? { ...l, status, logged_at: now.toISOString(), acorns_earned: acorns } : l))
     setLogging(null)
     setShowConfirm(null)
+
+    // Last dose of the day just logged — the streak (and the forest) grows now
+    const dayComplete = logs.every((l) => l.id === log.id || l.status !== 'pending')
+    if (dayComplete) await recomputeStreak(user.id)
   }
 
   const overdueLogs = logs.filter((l) => isOverdue(l))

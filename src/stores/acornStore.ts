@@ -10,6 +10,7 @@ interface AcornStore {
   setStreak: (current: number, longest: number) => void
   load: (userId: string) => Promise<void>
   addAcorns: (userId: string, amount: number) => Promise<void>
+  spendAcorns: (userId: string, amount: number) => Promise<boolean>
   reset: () => void
 }
 
@@ -48,5 +49,26 @@ export const useAcornStore = create<AcornStore>((set, get) => ({
       { onConflict: 'user_id' }
     )
     set({ balance: newBalance, lifetimeEarned: newLifetime })
+  },
+
+  spendAcorns: async (userId: string, amount: number) => {
+    // Always read from DB so stale local state can't corrupt the value
+    const { data } = await supabase
+      .from('acorn_balance')
+      .select('balance, lifetime_earned')
+      .eq('user_id', userId)
+      .maybeSingle()
+    const currentBalance = data?.balance ?? 0
+    if (currentBalance < amount) {
+      set({ balance: currentBalance })
+      return false
+    }
+    const newBalance = currentBalance - amount
+    await supabase.from('acorn_balance').upsert(
+      { user_id: userId, balance: newBalance, lifetime_earned: data?.lifetime_earned ?? 0 },
+      { onConflict: 'user_id' }
+    )
+    set({ balance: newBalance })
+    return true
   },
 }))
