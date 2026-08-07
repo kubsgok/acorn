@@ -89,6 +89,38 @@ export const SQUIRREL_IMAGE = require('../../assets/forest/squirrel.png')
 // v2 scene: one empty room the user furnishes themselves
 export const ROOM_IMAGE = require('../../assets/forest/room-empty.png')
 
+// Per-sprite contact-shadow footprint, measured from each PNG's opaque base:
+// centerX / baseY = where the object touches the floor (fraction of its frame),
+// widthPct = footprint width. Keeps each shadow under the object's real feet
+// instead of its bounding box. See scratchpad measurement.
+export interface ShadowSpec {
+  centerX: number
+  baseY: number
+  widthPct: number
+}
+
+export const ITEM_SHADOWS: Record<string, ShadowSpec> = {
+  'potted-plant':  { centerX: 0.51, baseY: 0.80, widthPct: 0.46 },
+  'lantern':       { centerX: 0.52, baseY: 0.80, widthPct: 0.40 },
+  'acorn-bowl':    { centerX: 0.46, baseY: 0.78, widthPct: 0.60 },
+  'knit-rug':      { centerX: 0.62, baseY: 0.78, widthPct: 0.54 },
+  'record-player': { centerX: 0.50, baseY: 0.87, widthPct: 0.58 },
+  'bookshelf':     { centerX: 0.48, baseY: 0.91, widthPct: 0.44 },
+  'desk-computer': { centerX: 0.50, baseY: 0.83, widthPct: 0.74 },
+}
+
+export const SQUIRREL_SHADOW: ShadowSpec = { centerX: 0.50, baseY: 0.83, widthPct: 0.44 }
+
+// Per-item render-size multiplier (default 1). Furniture reads much larger
+// than trinkets, so it needs to be scaled up relative to the base width.
+export const ITEM_SIZES: Record<string, number> = {
+  'desk-computer': 2.1,
+  'bookshelf': 1.75,
+  'record-player': 1.6,
+  'knit-rug': 1.35,
+  'acorn-bowl': 1.15,
+}
+
 // Static require map — React Native can only bundle literal require() calls.
 export const ITEM_IMAGES: Record<string, number> = {
   'potted-plant': require('../../assets/forest/items/potted-plant.png'),

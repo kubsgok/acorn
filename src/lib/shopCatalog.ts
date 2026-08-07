@@ -13,7 +13,7 @@ export const SHOP_CATALOG: ShopItem[] = [
   { id: 'pennant-flag',  emoji: '🚩', name: 'Pennant flag',       price: 15, placement: 'wall' },
   { id: 'lantern',       emoji: '🏮', name: 'Lantern',            price: 20, placement: 'floor' },
   { id: 'wall-poster',   emoji: '🖼️', name: 'Wall poster',        price: 25, placement: 'wall' },
-  { id: 'growing-sign',  emoji: '🪧', name: '"Keep Growing" sign', price: 25, placement: 'floor' },
+  { id: 'growing-sign',  emoji: '🪧', name: '"Keep Growing" sign', price: 25, placement: 'wall' },
   { id: 'acorn-bowl',    emoji: '🥣', name: 'Acorn bowl',         price: 30, placement: 'floor' },
   { id: 'knit-rug',      emoji: '🧶', name: 'Knit rug',           price: 35, placement: 'floor' },
   { id: 'record-player', emoji: '📀', name: 'Record player',      price: 40, placement: 'floor' },

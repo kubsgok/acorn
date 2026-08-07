@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Image } from 'react-native'
+import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Image, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, router } from 'expo-router'
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
@@ -167,7 +167,7 @@ export default function ProgressScreen() {
                 borderWidth: 1, borderColor: '#e7e5e4',
                 padding: 16, alignItems: 'center', gap: 4,
               }}>
-                <MaterialCommunityIcons name="piggy-bank-outline" size={24} color="#b15f00" />
+                <Text style={{ fontSize: 22 }}>🌰</Text>
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#78716c', letterSpacing: 0.3, textTransform: 'uppercase' }}>
                   Balance
                 </Text>
@@ -268,7 +268,20 @@ export default function ProgressScreen() {
             <View style={{ marginBottom: 20 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <Text style={{ fontSize: 17, fontWeight: '700', color: '#1f1b17' }}>Streak Milestones</Text>
-                <MaterialCommunityIcons name="information-outline" size={20} color="#b15f00" />
+                <TouchableOpacity
+                  onPress={() =>
+                    Alert.alert(
+                      'How streaks work',
+                      'Your streak grows by 1 for every day you log ALL of your scheduled doses.\n\n' +
+                        '• A dose left unlogged past midnight counts as missed and resets your streak to 0.\n' +
+                        '• Days with no medications scheduled don’t break your streak.\n\n' +
+                        'Milestones are earned with your longest-ever streak, so once you unlock one it’s yours to keep — even if your current streak resets.'
+                    )
+                  }
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons name="information-outline" size={20} color="#b15f00" />
+                </TouchableOpacity>
               </View>
 
               {/* Completed milestones */}

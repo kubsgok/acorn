@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Image, Alert } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Pressable } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, router } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -18,18 +18,24 @@ import Animated, {
 } from 'react-native-reanimated'
 import { supabase } from '../../src/lib/supabase'
 import { recomputeStreak } from '../../src/lib/streaks'
-import { STAGES, ROOM_IMAGE, ITEM_IMAGES, currentStageIndex, stageProgress } from '../../src/lib/forestStages'
+import { STAGES, ROOM_IMAGE, ITEM_IMAGES, ITEM_SHADOWS, ITEM_SIZES, currentStageIndex, stageProgress } from '../../src/lib/forestStages'
 import {
-  GridCell,
-  SQUIRREL_CELL,
-  WALL_CELLS,
-  cellFor,
-  freeCells,
-  nearestFreeCell,
-  TIER1_SLOT_TO_CELL,
+  ScenePos,
+  SQUIRREL_ANCHOR,
+  ROOM_ZOOM,
+  ROOM_PIVOT_Y,
+  toDisplay,
+  fromDisplay,
+  clampToRegion,
+  depthFor,
+  gridToPos,
+  posToGrid,
+  DEFAULT_FLOOR_SPOTS,
+  DEFAULT_WALL_SPOTS,
 } from '../../src/lib/forestGrid'
 import { shopItemById } from '../../src/lib/shopCatalog'
 import { ForestSquirrel } from '../../src/components/ForestSquirrel'
+import { ContactShadow } from '../../src/components/ContactShadow'
 import { StageCelebration } from '../../src/components/StageCelebration'
 import { DraggableDecoration } from '../../src/components/DraggableDecoration'
 import { useAuthStore } from '../../src/stores/authStore'
@@ -46,9 +52,8 @@ interface ForestItemRow {
   grid_y: number | null
 }
 
-function rowCell(row: ForestItemRow): GridCell | undefined {
-  if (row.grid_x === null || row.grid_y === null) return undefined
-  return cellFor(row.grid_x, row.grid_y)
+function rowPos(row: ForestItemRow): ScenePos | null {
+  return gridToPos(row.grid_x, row.grid_y)
 }
 
 function ProgressRing({ progress }: { progress: number }) {
@@ -70,27 +75,6 @@ function ProgressRing({ progress }: { progress: number }) {
       </Svg>
       <Text style={{ fontSize: 18 }}>🍃</Text>
     </View>
-  )
-}
-
-function CellMarker({ cell }: { cell: GridCell }) {
-  const size = 0.11 * cell.depthScale
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        left: `${(cell.x - size / 2) * 100}%`,
-        top: `${(cell.y - size / 2) * 100}%`,
-        width: `${size * 100}%`,
-        aspectRatio: 1,
-        borderRadius: 999,
-        borderWidth: 2,
-        borderStyle: 'dashed',
-        borderColor: 'rgba(255,255,255,0.9)',
-        backgroundColor: 'rgba(255,255,255,0.28)',
-      }}
-    />
   )
 }
 
@@ -162,6 +146,7 @@ export default function ForestScreen() {
   const balance = useAcornStore((s) => s.balance)
   const currentStreak = useAcornStore((s) => s.currentStreak)
   const loadAcorns = useAcornStore((s) => s.load)
+  const addAcorns = useAcornStore((s) => s.addAcorns)
   const [rows, setRows] = useState<ForestItemRow[]>([])
   const [dragKind, setDragKind] = useState<'floor' | 'wall' | null>(null)
   const [sceneSize, setSceneSize] = useState(0)
@@ -196,17 +181,21 @@ export default function ForestScreen() {
         .eq('user_id', user.id)
       if (!active) return
 
-      // Migrate Tier 1 placements (slot index in grid_x, grid_y null) to grid cells
+      // Migrate legacy placements (cell/slot indices from older builds) to
+      // free positions at spread default spots
       const list = ((data ?? []) as ForestItemRow[]).map((r) => ({ ...r }))
+      let floorSpot = 0
+      let wallSpot = 0
       for (const r of list) {
-        if (r.grid_x !== null && r.grid_y === null) {
+        if (r.grid_x !== null && gridToPos(r.grid_x, r.grid_y) === null) {
           const item = shopItemById(r.item_id)
-          const cell =
+          const spot =
             item?.placement === 'wall'
-              ? WALL_CELLS[r.grid_x % WALL_CELLS.length]
-              : TIER1_SLOT_TO_CELL[r.grid_x] ?? null
-          r.grid_x = cell?.col ?? null
-          r.grid_y = cell?.row ?? null
+              ? DEFAULT_WALL_SPOTS[wallSpot++ % DEFAULT_WALL_SPOTS.length]
+              : DEFAULT_FLOOR_SPOTS[floorSpot++ % DEFAULT_FLOOR_SPOTS.length]
+          const g = posToGrid(spot)
+          r.grid_x = g.grid_x
+          r.grid_y = g.grid_y
           await supabase.from('forest_items').update({ grid_x: r.grid_x, grid_y: r.grid_y }).eq('id', r.id)
         }
       }
@@ -230,20 +219,13 @@ export default function ForestScreen() {
 
   const { progress, nextStage } = stageProgress(currentStreak)
 
-  const placedRows = rows.filter((r) => rowCell(r) && ITEM_IMAGES[r.item_id])
-  const unplacedRows = rows.filter((r) => !rowCell(r) && shopItemById(r.item_id))
+  const placedRows = rows.filter((r) => rowPos(r) && ITEM_IMAGES[r.item_id])
+  const unplacedRows = rows.filter((r) => !rowPos(r) && shopItemById(r.item_id))
 
-  function occupiedKeys(excludeRowId?: string): Set<string> {
-    return new Set(
-      placedRows.filter((r) => r.id !== excludeRowId).map((r) => rowCell(r)!.key)
-    )
-  }
-
-  async function moveToCell(row: ForestItemRow, cell: GridCell | null) {
-    const grid_x = cell?.col ?? null
-    const grid_y = cell?.row ?? null
-    await supabase.from('forest_items').update({ grid_x, grid_y }).eq('id', row.id)
-    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, grid_x, grid_y } : r)))
+  async function moveToPos(row: ForestItemRow, pos: ScenePos | null) {
+    const g = pos ? posToGrid(pos) : { grid_x: null, grid_y: null }
+    await supabase.from('forest_items').update(g).eq('id', row.id)
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, ...g } : r)))
   }
 
   function handleDrop(rowId: string, fx: number, fy: number) {
@@ -252,13 +234,11 @@ export default function ForestScreen() {
     const item = shopItemById(row.item_id)
     if (!item) return
     if (fx > TRAY.x && fy > TRAY.y) {
-      moveToCell(row, null)
+      moveToPos(row, null)
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
       return
     }
-    const cell = nearestFreeCell(fx, fy, item.placement, occupiedKeys(rowId))
-    if (!cell || cell.key === rowCell(row)?.key) return
-    moveToCell(row, cell)
+    moveToPos(row, clampToRegion(item.placement, fromDisplay({ x: fx, y: fy })))
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
   }
 
@@ -269,13 +249,9 @@ export default function ForestScreen() {
     }
     const item = shopItemById(row.item_id)
     if (!item) return
-    const entry = item.placement === 'wall' ? { x: 0.7, y: 0.5 } : { x: 0.5, y: 0.95 }
-    const cell = nearestFreeCell(entry.x, entry.y, item.placement, occupiedKeys())
-    if (!cell) {
-      Alert.alert('Room is full', 'Put something away first (drag it to the tray).')
-      return
-    }
-    moveToCell(row, cell)
+    const spots = item.placement === 'wall' ? DEFAULT_WALL_SPOTS : DEFAULT_FLOOR_SPOTS
+    const sameKindCount = placedRows.filter((r) => shopItemById(r.item_id)?.placement === item.placement).length
+    moveToPos(row, spots[sameKindCount % spots.length])
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
   }
 
@@ -305,12 +281,7 @@ export default function ForestScreen() {
     const row = rows.find((r) => r.id === rowId)
     const item = row && shopItemById(row.item_id)
     if (!row || !item) return
-    const cell = nearestFreeCell(fx, fy, item.placement, occupiedKeys())
-    if (!cell) {
-      Alert.alert('Room is full', 'Put something away first (drag it to the tray).')
-      return
-    }
-    moveToCell(row, cell)
+    moveToPos(row, clampToRegion(item.placement, fromDisplay({ x: fx, y: fy })))
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
   }
 
@@ -320,16 +291,17 @@ export default function ForestScreen() {
     const item = shopItemById(row.item_id)
     Alert.alert(item?.name ?? 'Decoration', 'Put this decoration away?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Put away', onPress: () => moveToCell(row, null) },
+      { text: 'Put away', onPress: () => moveToPos(row, null) },
     ])
   }
 
-  const wallRows = placedRows.filter((r) => rowCell(r)!.kind === 'wall')
+  const rowKind = (r: ForestItemRow) => shopItemById(r.item_id)?.placement ?? 'floor'
+  const wallRows = placedRows.filter((r) => rowKind(r) === 'wall')
   const floorObjects: ({ type: 'squirrel'; y: number } | { type: 'item'; row: ForestItemRow; y: number })[] = [
-    { type: 'squirrel' as const, y: SQUIRREL_CELL.y },
+    { type: 'squirrel' as const, y: SQUIRREL_ANCHOR.y },
     ...placedRows
-      .filter((r) => rowCell(r)!.kind === 'floor')
-      .map((row) => ({ type: 'item' as const, row, y: rowCell(row)!.y })),
+      .filter((r) => rowKind(r) === 'floor')
+      .map((row) => ({ type: 'item' as const, row, y: rowPos(row)!.y })),
   ].sort((a, b) => a.y - b.y)
 
   return (
@@ -351,13 +323,22 @@ export default function ForestScreen() {
             </Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-            <View style={{
-              flexDirection: 'row', alignItems: 'center', gap: 5,
-              backgroundColor: '#fef3c7', borderRadius: 20,
-              paddingHorizontal: 12, paddingVertical: 6,
-            }}>
+            {/* DEV: long-press to grant +500 acorns for testing — remove before release */}
+            <Pressable
+              onLongPress={async () => {
+                if (!user) return
+                await addAcorns(user.id, 500)
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+              }}
+              delayLongPress={500}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 5,
+                backgroundColor: '#fef3c7', borderRadius: 20,
+                paddingHorizontal: 12, paddingVertical: 6,
+              }}
+            >
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#8d4b00' }}>🌰 {balance}</Text>
-            </View>
+            </Pressable>
             <View style={{
               flexDirection: 'row', alignItems: 'center', gap: 5,
               backgroundColor: '#fff1e6', borderRadius: 20,
@@ -375,7 +356,7 @@ export default function ForestScreen() {
             borderRadius: 24, overflow: 'hidden', marginBottom: 20,
             aspectRatio: 1, backgroundColor: '#f0e6da',
           }}>
-            <Image source={ROOM_IMAGE} style={{ width: '100%', height: '100%', opacity: 0.35 }} resizeMode="cover" />
+            <Image source={ROOM_IMAGE} style={{ width: '100%', height: '100%', opacity: 0.35, transform: [{ scale: ROOM_ZOOM }], transformOrigin: `50% ${ROOM_PIVOT_Y * 100}%` }} resizeMode="cover" />
             <View style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
               alignItems: 'center', justifyContent: 'center', padding: 24,
@@ -401,51 +382,55 @@ export default function ForestScreen() {
               sceneStyle,
             ]}
           >
-            <Image source={ROOM_IMAGE} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+            <Image source={ROOM_IMAGE} style={{ width: '100%', height: '100%', transform: [{ scale: ROOM_ZOOM }], transformOrigin: `50% ${ROOM_PIVOT_Y * 100}%` }} resizeMode="cover" />
 
             {/* Wall decorations (always behind floor objects) */}
-            {sceneSize > 0 && wallRows.map((row) => (
-              <DraggableDecoration
-                key={row.id}
-                rowId={row.id}
-                image={ITEM_IMAGES[row.item_id]}
-                cell={rowCell(row)!}
-                sceneSize={sceneSize}
-                onDragActive={(a) => setDragKind(a ? 'wall' : null)}
-                onDrop={handleDrop}
-                onTap={promptPutAway}
-              />
-            ))}
-
-            {/* Floor: tree, squirrel, items — drawn back-to-front */}
-            {sceneSize > 0 && floorObjects.map((obj) => {
-              if (obj.type === 'squirrel') {
-                return (
-                  <ForestSquirrel
-                    key="squirrel"
-                    anchor={{ x: SQUIRREL_CELL.x, y: SQUIRREL_CELL.y, scale: SQUIRREL_CELL.depthScale }}
-                  />
-                )
-              }
-              const item = shopItemById(obj.row.item_id)!
+            {sceneSize > 0 && wallRows.map((row) => {
+              const pos = rowPos(row)!
               return (
                 <DraggableDecoration
-                  key={obj.row.id}
-                  rowId={obj.row.id}
-                  image={ITEM_IMAGES[obj.row.item_id]}
-                  cell={rowCell(obj.row)!}
+                  key={row.id}
+                  rowId={row.id}
+                  image={ITEM_IMAGES[row.item_id]}
+                  pos={toDisplay(pos)}
+                  kind="wall"
+                  depthScale={depthFor('wall', pos) * ROOM_ZOOM}
                   sceneSize={sceneSize}
-                  onDragActive={(a) => setDragKind(a ? item.placement : null)}
+                  onDragActive={(a) => setDragKind(a ? 'wall' : null)}
                   onDrop={handleDrop}
                   onTap={promptPutAway}
                 />
               )
             })}
 
-            {/* Free-cell highlights while dragging */}
-            {dragKind && freeCells(dragKind, occupiedKeys()).map((cell) => (
-              <CellMarker key={cell.key} cell={cell} />
-            ))}
+            {/* Floor: squirrel + items — drawn back-to-front */}
+            {sceneSize > 0 && floorObjects.map((obj) => {
+              if (obj.type === 'squirrel') {
+                return (
+                  <ForestSquirrel
+                    key="squirrel"
+                    anchor={{ ...toDisplay(SQUIRREL_ANCHOR), scale: SQUIRREL_ANCHOR.scale * ROOM_ZOOM }}
+                  />
+                )
+              }
+              const item = shopItemById(obj.row.item_id)!
+              const pos = rowPos(obj.row)!
+              return (
+                <DraggableDecoration
+                  key={obj.row.id}
+                  rowId={obj.row.id}
+                  image={ITEM_IMAGES[obj.row.item_id]}
+                  pos={toDisplay(pos)}
+                  kind="floor"
+                  depthScale={depthFor('floor', pos) * ROOM_ZOOM * (ITEM_SIZES[obj.row.item_id] ?? 1)}
+                  sceneSize={sceneSize}
+                  shadow={ITEM_SHADOWS[obj.row.item_id]}
+                  onDragActive={(a) => setDragKind(a ? item.placement : null)}
+                  onDrop={handleDrop}
+                  onTap={promptPutAway}
+                />
+              )
+            })}
 
             {/* Put-away tray while dragging */}
             {dragKind && (
@@ -463,19 +448,6 @@ export default function ForestScreen() {
               </View>
             )}
 
-            {/* Streak badge */}
-            {!dragKind && (
-              <View style={{
-                position: 'absolute', bottom: 14, left: 14,
-                backgroundColor: '#5b4332', borderRadius: 10,
-                paddingHorizontal: 12, paddingVertical: 7,
-                borderWidth: 2, borderColor: '#3f2d20',
-              }}>
-                <Text style={{ color: '#f7ede2', fontWeight: '800', fontSize: 12, letterSpacing: 0.8 }}>
-                  {currentStreak} DAY STREAK
-                </Text>
-              </View>
-            )}
 
             {celebration && (
               <StageCelebration
@@ -539,7 +511,7 @@ export default function ForestScreen() {
           <MaterialCommunityIcons name="chevron-right" size={24} color="#a8a29e" />
         </TouchableOpacity>
 
-        {/* Unplaced decorations */}
+        {/* Your Decorations — tap or drag an item into the room */}
         {unplacedRows.length > 0 && (
           <View style={{
             backgroundColor: '#fff', borderRadius: 20, padding: 16,
@@ -584,10 +556,13 @@ export default function ForestScreen() {
           pointerEvents="none"
           style={[{ position: 'absolute', top: 0, left: 0, width: 72, height: 72, zIndex: 999 }, ghostStyle]}
         >
+          {shopItemById(ghostRow!.item_id)?.placement === 'floor' && ITEM_SHADOWS[ghostRow!.item_id] && (
+            <ContactShadow lift={1} spec={ITEM_SHADOWS[ghostRow!.item_id]} />
+          )}
           <Image
-            source={ITEM_IMAGES[ghostRow.item_id]}
+            source={ITEM_IMAGES[ghostRow!.item_id]}
             resizeMode="contain"
-            style={{ width: '100%', height: '100%', opacity: 0.9 }}
+            style={{ width: '100%', height: '100%', opacity: 0.9, transform: [{ translateY: -10 }] }}
           />
         </Animated.View>
       )}

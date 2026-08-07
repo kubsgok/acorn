@@ -14,6 +14,7 @@ export default function ShopScreen() {
   const balance = useAcornStore((s) => s.balance)
   const loadAcorns = useAcornStore((s) => s.load)
   const spendAcorns = useAcornStore((s) => s.spendAcorns)
+  const addAcorns = useAcornStore((s) => s.addAcorns)
   const [ownedItemIds, setOwnedItemIds] = useState<string[]>([])
   const [confirmItem, setConfirmItem] = useState<ShopItem | null>(null)
   const [buying, setBuying] = useState(false)
@@ -47,6 +48,15 @@ export default function ShopScreen() {
     }
     setBuying(false)
     setConfirmItem(null)
+  }
+
+  // DEV/demo: long-press an owned item to un-buy it (refunds acorns) — remove before release
+  async function unpurchase(item: ShopItem) {
+    if (!user) return
+    await supabase.from('forest_items').delete().eq('user_id', user.id).eq('item_id', item.id)
+    await addAcorns(user.id, item.price)
+    setOwnedItemIds((prev) => prev.filter((id) => id !== item.id))
+    showToast(`↩︎ ${item.name} refunded (demo)`)
   }
 
   return (
@@ -110,12 +120,16 @@ export default function ShopScreen() {
                   🌰 {item.price}
                 </Text>
                 {owned ? (
-                  <View style={{
-                    backgroundColor: '#dcfce7', borderRadius: 12,
-                    paddingVertical: 9, alignSelf: 'stretch', alignItems: 'center',
-                  }}>
+                  <TouchableOpacity
+                    onLongPress={() => unpurchase(item)}
+                    delayLongPress={500}
+                    style={{
+                      backgroundColor: '#dcfce7', borderRadius: 12,
+                      paddingVertical: 9, alignSelf: 'stretch', alignItems: 'center',
+                    }}
+                  >
                     <Text style={{ fontSize: 13, fontWeight: '700', color: '#006e2d' }}>Owned</Text>
-                  </View>
+                  </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
                     onPress={() => setConfirmItem(item)}

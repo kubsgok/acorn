@@ -28,7 +28,7 @@ export default function NotificationsScreen() {
     if (user) await addAcorns(user.id, 10)
     await AsyncStorage.setItem('onboarding_done', 'true')
     setOnboardingDone(true)
-    router.replace('/(tabs)')
+    router.replace('/(tabs)/forest')
   }
 
   return (
