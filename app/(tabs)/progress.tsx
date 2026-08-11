@@ -6,6 +6,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
+import { CalendarView } from './calendar'
 
 interface DaySummary { date: string; rate: number; hasData: boolean }
 
@@ -107,6 +108,7 @@ export default function ProgressScreen() {
     : '#ba1a1a'
 
   const initials = squirrelName ? squirrelName.slice(0, 1).toUpperCase() : '?'
+  const [tab, setTab] = useState<'overview' | 'calendar'>('overview')
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff8f5' }} edges={['top']}>
@@ -131,20 +133,35 @@ export default function ProgressScreen() {
           </View>
           <Text style={{ fontSize: 22, fontWeight: '800', color: '#b15f00', letterSpacing: -0.5 }}>Acorn</Text>
         </View>
-        <TouchableOpacity style={{
-          width: 40, height: 40, borderRadius: 20,
-          alignItems: 'center', justifyContent: 'center',
-        }}
-          onPress={() => router.push('/(tabs)/calendar')}
-        >
-          <MaterialCommunityIcons name="calendar-today" size={22} color="#b15f00" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Segmented toggle: Overview | Calendar */}
+        <View style={{ flexDirection: 'row', backgroundColor: '#f1ebe4', borderRadius: 14, padding: 4, marginBottom: 20 }}>
+          {(['overview', 'calendar'] as const).map((t) => (
+            <TouchableOpacity
+              key={t}
+              onPress={() => setTab(t)}
+              activeOpacity={0.9}
+              style={[
+                { flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center', backgroundColor: tab === t ? '#fff' : 'transparent' },
+                tab === t && { shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+              ]}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '700', color: tab === t ? '#1f1b17' : '#a8907c' }}>
+                {t === 'overview' ? 'Overview' : 'Calendar'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {tab === 'calendar' ? (
+          <CalendarView />
+        ) : (
+        <>
         {/* Headline */}
         <View style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 24, fontWeight: '700', color: '#1f1b17', letterSpacing: -0.3 }}>
@@ -390,6 +407,8 @@ export default function ProgressScreen() {
               )}
             </View>
           </>
+        )}
+        </>
         )}
       </ScrollView>
     </SafeAreaView>

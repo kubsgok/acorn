@@ -30,6 +30,7 @@ export default function RootLayout() {
         <Stack.Screen name="medication/new" options={{ gestureEnabled: true }} />
         <Stack.Screen name="chat" options={{ gestureEnabled: true }} />
         <Stack.Screen name="shop" options={{ gestureEnabled: true, presentation: 'modal' }} />
+        <Stack.Screen name="tree-shop" options={{ gestureEnabled: true, presentation: 'modal' }} />
       </Stack>
     </GestureHandlerRootView>
   )

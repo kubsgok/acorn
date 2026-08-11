@@ -178,10 +178,9 @@ export default function HomeScreen() {
           borderRadius: 16,
           padding: 16,
           marginBottom: 10,
-          borderWidth: 1,
-          borderColor: '#e7e5e4',
           borderLeftWidth: 4,
           borderLeftColor: log.medication.color,
+          shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3,
         }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flex: 1 }}>
@@ -219,10 +218,11 @@ export default function HomeScreen() {
         borderRadius: 16,
         padding: 16,
         marginBottom: 10,
-        borderWidth: 1,
-        borderColor: overdue ? '#fca5a5' : '#e7e5e4',
+        borderWidth: overdue ? 1 : 0,
+        borderColor: overdue ? '#fca5a5' : 'transparent',
         borderLeftWidth: 4,
         borderLeftColor: overdue ? '#ba1a1a' : log.medication.color,
+        shadowColor: overdue ? '#ba1a1a' : '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: overdue ? 0.1 : 0.07, shadowRadius: 12, elevation: 3,
       }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View style={{ flex: 1 }}>
@@ -324,7 +324,7 @@ export default function HomeScreen() {
         <View style={{ marginHorizontal: 20, marginBottom: 20 }}>
           <TouchableOpacity
             onPress={() => router.push('/chat')}
-            activeOpacity={0.85}
+            activeOpacity={0.9}
             style={{
               backgroundColor: '#fcf2eb',
               borderRadius: 20,
@@ -332,6 +332,7 @@ export default function HomeScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 14,
+              shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 4,
             }}>
             <View style={{
               width: 56, height: 56, borderRadius: 28,
@@ -350,7 +351,9 @@ export default function HomeScreen() {
                 {getMoodMessage(squirrelName ?? 'Nutmeg', allDone, overdueLogs, currentStreak)}
               </Text>
             </View>
-            <MaterialCommunityIcons name="message-outline" size={20} color="#b15f00" />
+            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#fdf1e6', alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name="message-outline" size={18} color="#b15f00" />
+            </View>
           </TouchableOpacity>
         </View>
 

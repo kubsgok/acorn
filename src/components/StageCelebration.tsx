@@ -45,10 +45,14 @@ export function StageCelebration({
   fromEmoji,
   toEmoji,
   onDone,
+  title = 'Your forest grew!',
+  subtitle,
 }: {
   fromEmoji: string
   toEmoji: string
   onDone: () => void
+  title?: string
+  subtitle?: string
 }) {
   const progress = useSharedValue(0)
   const banner = useSharedValue(0)
@@ -86,10 +90,13 @@ export function StageCelebration({
           bannerStyle,
         ]}
       >
-        <Text style={{ color: '#f7ede2', fontWeight: '800', fontSize: 16 }}>Your forest grew!</Text>
+        <Text style={{ color: '#f7ede2', fontWeight: '800', fontSize: 16 }}>{title}</Text>
         <Text style={{ fontSize: 20, marginTop: 4 }}>
           {fromEmoji}  →  {toEmoji}
         </Text>
+        {subtitle && (
+          <Text style={{ color: '#ffd98a', fontWeight: '800', fontSize: 14, marginTop: 6 }}>{subtitle}</Text>
+        )}
       </Animated.View>
     </View>
   )

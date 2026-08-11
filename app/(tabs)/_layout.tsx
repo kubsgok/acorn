@@ -20,13 +20,6 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="progress"
-        options={{
-          title: 'Progress',
-          tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="forest"
         options={{
           title: 'Forest',
@@ -34,12 +27,21 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="calendar"
+        name="den"
         options={{
-          title: 'Calendar',
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
+          title: 'Den',
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="progress"
+        options={{
+          title: 'Progress',
+          tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} />,
+        }}
+      />
+      {/* Calendar is merged into the Progress tab; keep the route reachable but hidden from the tab bar */}
+      <Tabs.Screen name="calendar" options={{ href: null }} />
       <Tabs.Screen
         name="settings"
         options={{
