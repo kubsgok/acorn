@@ -64,6 +64,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true)
   const [logging, setLogging] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState<MedLog | null>(null)
+  const [showConfirmAll, setShowConfirmAll] = useState(false)
+  const [loggingAll, setLoggingAll] = useState(false)
   const [lastEarned, setLastEarned] = useState<number | null>(null)
 
   const load = useCallback(async () => {
@@ -158,6 +160,39 @@ export default function HomeScreen() {
     // Last dose of the day just logged — the streak (and the forest) grows now
     const dayComplete = logs.every((l) => l.id === log.id || l.status !== 'pending')
     if (dayComplete) await recomputeStreak(user.id)
+  }
+
+  // Log every still-pending dose in one go.
+  async function logAll() {
+    if (!user) return
+    setLoggingAll(true)
+    const now = new Date()
+    const pending = logs.filter((l) => l.status === 'pending')
+    const updates = pending.map((l) => {
+      const status = calcStatus(new Date(l.scheduled_at), now)
+      return { id: l.id, status, acorns: calcAcorns(status) }
+    })
+    const total = updates.reduce((sum, u) => sum + u.acorns, 0)
+
+    await Promise.all(updates.map((u) =>
+      supabase.from('medication_logs').update({
+        logged_at: now.toISOString(), status: u.status, acorns_earned: u.acorns,
+      }).eq('id', u.id)
+    ))
+
+    await addAcorns(user.id, total)
+    setLastEarned(total)
+    setTimeout(() => setLastEarned(null), 2000)
+
+    setLogs((prev) => prev.map((l) => {
+      const u = updates.find((x) => x.id === l.id)
+      return u ? { ...l, status: u.status, logged_at: now.toISOString(), acorns_earned: u.acorns } : l
+    }))
+    setLoggingAll(false)
+    setShowConfirmAll(false)
+
+    // The day is now complete — grow the streak (and the forest)
+    await recomputeStreak(user.id)
   }
 
   const overdueLogs = logs.filter((l) => isOverdue(l))
@@ -380,6 +415,25 @@ export default function HomeScreen() {
             </View>
           ) : (
             <>
+              {/* Take all — logs every pending dose at once */}
+              {(overdueLogs.length + upcomingLogs.length) > 1 && (
+                <TouchableOpacity
+                  onPress={() => setShowConfirmAll(true)}
+                  activeOpacity={0.9}
+                  style={{
+                    backgroundColor: '#b15f00', borderRadius: 16, paddingVertical: 14,
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    marginBottom: 20,
+                    shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 5,
+                  }}
+                >
+                  <MaterialCommunityIcons name="check-all" size={20} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>
+                    Take all {overdueLogs.length + upcomingLogs.length} medications
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {/* Overdue */}
               {overdueLogs.length > 0 && (
                 <View style={{ marginBottom: 20 }}>
@@ -479,6 +533,52 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setShowConfirm(null)}
+              style={{ padding: 12, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#a8a29e', fontWeight: '600' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Take-all confirm modal */}
+      <Modal visible={showConfirmAll} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
+          <View style={{
+            backgroundColor: '#fff',
+            borderTopLeftRadius: 28, borderTopRightRadius: 28,
+            padding: 28, paddingBottom: 40,
+          }}>
+            <View style={{
+              width: 64, height: 64, borderRadius: 32,
+              backgroundColor: '#fef3c7',
+              alignItems: 'center', justifyContent: 'center',
+              alignSelf: 'center', marginBottom: 16,
+            }}>
+              <MaterialCommunityIcons name="check-all" size={30} color="#b15f00" />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#1c1917', textAlign: 'center' }}>
+              Take all {overdueLogs.length + upcomingLogs.length} medications?
+            </Text>
+            <Text style={{ fontSize: 14, color: '#78716c', textAlign: 'center', marginTop: 8, marginBottom: 28, lineHeight: 20 }}>
+              This will log every pending dose for today and earn you acorns.
+            </Text>
+            <TouchableOpacity
+              onPress={logAll}
+              disabled={loggingAll}
+              style={{
+                backgroundColor: '#b15f00', borderRadius: 14,
+                padding: 16, alignItems: 'center', marginBottom: 10,
+              }}
+            >
+              {loggingAll
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Yes, log them all</Text>
+              }
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowConfirmAll(false)}
+              disabled={loggingAll}
               style={{ padding: 12, alignItems: 'center' }}
             >
               <Text style={{ color: '#a8a29e', fontWeight: '600' }}>Cancel</Text>

@@ -54,12 +54,12 @@ export async function compliantDaySet(userId: string): Promise<Set<string>> {
   return set
 }
 
-// A planted tree gains a stage for each compliant day from its planting date
-// through today (inclusive), clamped to MAX_PLANTED_STAGE.
+// A freshly planted tree is a sapling (stage 0); it gains a stage for each
+// compliant day AFTER its planting day, clamped to MAX_PLANTED_STAGE.
 export function plantedTreeStage(placedAtISO: string, compliant: Set<string>): number {
-  const start = new Date(placedAtISO)
-  start.setHours(0, 0, 0, 0)
-  const cursor = new Date(start)
+  const cursor = new Date(placedAtISO)
+  cursor.setHours(0, 0, 0, 0)
+  cursor.setDate(cursor.getDate() + 1) // start counting the day after planting
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -79,15 +79,27 @@ export interface GroveTree {
   stage: number
 }
 
-// Loads planted trees and computes each one's current growth stage with a
-// single compliant-day query (not one per tree).
-export async function loadGrove(userId: string, treeIds: Set<string>): Promise<GroveTree[]> {
+export interface UnplacedTree {
+  id: string
+  item_id: string
+}
+
+export interface GroveData {
+  planted: GroveTree[]
+  unplaced: UnplacedTree[]
+}
+
+// Loads a user's trees split into planted (with computed growth stage) and
+// unplaced (in the "Your Trees" inventory), using one query + one compliant
+// day set.
+export async function loadGrove(userId: string, treeIds: Set<string>): Promise<GroveData> {
   const [{ data: rows }, compliant] = await Promise.all([
     supabase.from('forest_items').select('id, item_id, grid_x, grid_y, placed_at').eq('user_id', userId),
     compliantDaySet(userId),
   ])
-  return (rows ?? [])
-    .filter((r) => treeIds.has(r.item_id) && r.grid_x !== null && r.grid_y !== null)
+  const treeRows = (rows ?? []).filter((r) => treeIds.has(r.item_id))
+  const planted = treeRows
+    .filter((r) => r.grid_x !== null && r.grid_y !== null)
     .map((r) => ({
       id: r.id,
       item_id: r.item_id,
@@ -95,4 +107,8 @@ export async function loadGrove(userId: string, treeIds: Set<string>): Promise<G
       y: (r.grid_y as number) / 1000,
       stage: plantedTreeStage(r.placed_at, compliant),
     }))
+  const unplaced = treeRows
+    .filter((r) => r.grid_x === null || r.grid_y === null)
+    .map((r) => ({ id: r.id, item_id: r.item_id }))
+  return { planted, unplaced }
 }

@@ -1,13 +1,16 @@
-import { useCallback, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable } from 'react-native'
+import { useCallback, useRef, useState } from 'react'
+import { View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, router } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   Easing,
   FadeInDown,
+  runOnJS,
+  SharedValue,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -17,9 +20,9 @@ import Animated, {
 } from 'react-native-reanimated'
 import { supabase } from '../../src/lib/supabase'
 import { recomputeStreak } from '../../src/lib/streaks'
-import { mainTreeStage, loadGrove, GroveTree } from '../../src/lib/treeGrowth'
+import { mainTreeStage, loadGrove, GroveTree, UnplacedTree } from '../../src/lib/treeGrowth'
 import { MAIN_TREE_IMAGES, GROVE_BG, TREE_IDS, treeById } from '../../src/lib/treeCatalog'
-import { MAIN_TREE_POS, clampToGround, depthFor, ScenePos } from '../../src/lib/groveLayout'
+import { MAIN_TREE_POS, clampToGround, depthFor, DEFAULT_TREE_SPOTS, ScenePos } from '../../src/lib/groveLayout'
 import { DraggableDecoration } from '../../src/components/DraggableDecoration'
 import { ContactShadow } from '../../src/components/ContactShadow'
 import { StageCelebration } from '../../src/components/StageCelebration'
@@ -34,7 +37,7 @@ const MILESTONES = [
   { days: 14, bonus: 40, emoji: '🌳' },
   { days: 30, bonus: 60, emoji: '🌸' },
 ]
-const TREE_SHADOW = { centerX: 0.5, baseY: 0.92, widthPct: 0.5 }
+const TREE_SHADOW = { centerX: 0.5, baseY: 0.97, widthPct: 0.44 }
 const MAIN_WIDTH = 0.42 // main tree width as a fraction of the scene
 
 // Soft, diffused, color-tinted ambient shadow (no harsh dark drop shadows).
@@ -63,6 +66,38 @@ function PressableScale({ onPress, style, children }: { onPress: () => void; sty
   )
 }
 
+// Inventory tile in "Your Trees": tap to plant, or hold-and-drag into the grove
+// (a ghost follows the finger). Mirrors the den's decoration inventory.
+function TreeInventoryTile({
+  row, name, image, ghostX, ghostY, onDragStart, onDragEnd, onDrop, onTap,
+}: {
+  row: UnplacedTree
+  name: string
+  image: number
+  ghostX: SharedValue<number>
+  ghostY: SharedValue<number>
+  onDragStart: (id: string) => void
+  onDragEnd: () => void
+  onDrop: (id: string, absX: number, absY: number) => void
+  onTap: (id: string) => void
+}) {
+  const pan = Gesture.Pan()
+    .activateAfterLongPress(150)
+    .onStart((e) => { ghostX.value = e.absoluteX; ghostY.value = e.absoluteY; runOnJS(onDragStart)(row.id) })
+    .onUpdate((e) => { ghostX.value = e.absoluteX; ghostY.value = e.absoluteY })
+    .onEnd((e) => { runOnJS(onDrop)(row.id, e.absoluteX, e.absoluteY) })
+    .onFinalize(() => { runOnJS(onDragEnd)() })
+  const tap = Gesture.Tap().onEnd(() => { runOnJS(onTap)(row.id) })
+  return (
+    <GestureDetector gesture={Gesture.Exclusive(pan, tap)}>
+      <View style={{ alignItems: 'center', gap: 6, backgroundColor: '#eef5e5', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, minWidth: 76 }}>
+        <Image source={image} style={{ width: 44, height: 44 }} resizeMode="contain" />
+        <Text style={{ fontSize: 11, fontWeight: '600', color: '#3f5533', textAlign: 'center' }}>{name}</Text>
+      </View>
+    </GestureDetector>
+  )
+}
+
 // Non-interactive centerpiece tree that grows with the streak and sways.
 function MainTree({ stage }: { stage: number }) {
   const sway = useSharedValue(0)
@@ -78,14 +113,17 @@ function MainTree({ stage }: { stage: number }) {
   const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${sway.value * 1.1}deg` }] }))
   const w = MAIN_WIDTH
   return (
-    <View style={{
-      position: 'absolute',
-      left: `${(MAIN_TREE_POS.x - w / 2) * 100}%`,
-      top: `${(MAIN_TREE_POS.y - w * 1.25) * 100}%`,
-      width: `${w * 100}%`,
-      aspectRatio: 512 / 640,
-    }}>
-      <ContactShadow spec={{ centerX: 0.5, baseY: 0.93, widthPct: 0.42 }} />
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: `${(MAIN_TREE_POS.x - w / 2) * 100}%`,
+        top: `${(MAIN_TREE_POS.y - w * 1.25) * 100}%`,
+        width: `${w * 100}%`,
+        aspectRatio: 512 / 640,
+      }}
+    >
+      <ContactShadow spec={{ centerX: 0.5, baseY: 0.98, widthPct: 0.4 }} />
       <Animated.Image source={MAIN_TREE_IMAGES[stage]} resizeMode="contain" style={[{ width: '100%', height: '100%' }, style]} />
     </View>
   )
@@ -98,10 +136,26 @@ export default function ForestScreen() {
   const loadAcorns = useAcornStore((s) => s.load)
   const addAcorns = useAcornStore((s) => s.addAcorns)
   const [trees, setTrees] = useState<GroveTree[]>([])
+  const [unplacedTrees, setUnplacedTrees] = useState<UnplacedTree[]>([])
   const [sceneSize, setSceneSize] = useState(0)
   const [dragging, setDragging] = useState(false)
   const [celebration, setCelebration] = useState<{ from: string; to: string; bonus: number } | null>(null)
   const [introOpen, setIntroOpen] = useState(false)
+
+  // Drag-from-inventory: a ghost sapling follows the finger in window coords
+  const sceneRef = useRef<View>(null)
+  const rootRef = useRef<View>(null)
+  const sceneRect = useRef<{ x: number; y: number; w: number } | null>(null)
+  const rootOrigin = useSharedValue({ x: 0, y: 0 })
+  const ghostX = useSharedValue(0)
+  const ghostY = useSharedValue(0)
+  const [ghostRow, setGhostRow] = useState<UnplacedTree | null>(null)
+  const ghostStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: ghostX.value - rootOrigin.value.x - 36 },
+      { translateY: ghostY.value - rootOrigin.value.y - 60 },
+    ],
+  }))
 
   useFocusEffect(useCallback(() => {
     if (!user) return
@@ -110,7 +164,8 @@ export default function ForestScreen() {
       const streak = await recomputeStreak(user.id)
       const grove = await loadGrove(user.id, TREE_IDS)
       if (!active) return
-      setTrees(grove)
+      setTrees(grove.planted)
+      setUnplacedTrees(grove.unplaced)
 
       // Milestone reward — once ever, gated on longest streak
       const longest = useAcornStore.getState().longestStreak
@@ -129,6 +184,69 @@ export default function ForestScreen() {
 
   const stage = mainTreeStage(currentStreak)
 
+  // Plant an inventory tree in the grove: it starts as a fresh sapling
+  // (placed_at = now resets growth) at the given spot.
+  async function plantFromInventory(id: string, at: ScenePos) {
+    const row = unplacedTrees.find((t) => t.id === id)
+    if (!row) return
+    const pos = clampToGround(at)
+    await supabase.from('forest_items').update({
+      grid_x: Math.round(pos.x * 1000),
+      grid_y: Math.round(pos.y * 1000),
+      placed_at: new Date().toISOString(),
+    }).eq('id', id)
+    setUnplacedTrees((prev) => prev.filter((t) => t.id !== id))
+    setTrees((prev) => [...prev, { id, item_id: row.item_id, x: pos.x, y: pos.y, stage: 0 }])
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+  }
+
+  // Tap an inventory tree → plant at a spread default spot.
+  function plantTree(id: string) {
+    plantFromInventory(id, DEFAULT_TREE_SPOTS[trees.length % DEFAULT_TREE_SPOTS.length])
+  }
+
+  function startInventoryDrag(id: string) {
+    const row = unplacedTrees.find((t) => t.id === id)
+    if (!row) return
+    sceneRef.current?.measureInWindow((x, y, w) => { sceneRect.current = { x, y, w } })
+    rootRef.current?.measureInWindow((x, y) => { rootOrigin.value = { x, y } })
+    setGhostRow(row)
+    setDragging(true)
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+  }
+
+  function endInventoryDrag() {
+    setGhostRow(null)
+    setDragging(false)
+  }
+
+  function dropFromInventory(id: string, absX: number, absY: number) {
+    const rect = sceneRect.current
+    if (!rect || rect.w === 0) return
+    const fx = (absX - rect.x) / rect.w
+    const fy = (absY - rect.y) / rect.w
+    if (fx < 0 || fx > 1 || fy < 0 || fy > 1) return // dropped outside → stays in inventory
+    plantFromInventory(id, { x: fx, y: fy })
+  }
+
+  // Tap a planted tree to put it back in "Your Trees" (the den's "put away").
+  function promptPutAway(id: string) {
+    const tree = trees.find((t) => t.id === id)
+    const species = tree && treeById(tree.item_id)
+    Alert.alert(species?.name ?? 'Tree', 'Put this tree back in Your Trees?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Put away',
+        onPress: async () => {
+          await supabase.from('forest_items').update({ grid_x: null, grid_y: null }).eq('id', id)
+          setTrees((prev) => prev.filter((t) => t.id !== id))
+          if (tree) setUnplacedTrees((prev) => [...prev, { id, item_id: tree.item_id }])
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+        },
+      },
+    ])
+  }
+
   async function moveTree(id: string, fx: number, fy: number) {
     const pos = clampToGround({ x: fx, y: fy })
     await supabase.from('forest_items').update({
@@ -146,7 +264,7 @@ export default function ForestScreen() {
   ].sort((a, b) => a.y - b.y)
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#eaf4e0' }} edges={['top']}>
+    <SafeAreaView ref={rootRef} style={{ flex: 1, backgroundColor: '#eaf4e0' }} edges={['top']}>
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
@@ -179,6 +297,7 @@ export default function ForestScreen() {
         {/* Grove scene — matted "double-bezel" frame + soft ambient shadow */}
         <Animated.View entering={FadeInDown.duration(600)} style={[{ padding: 6, borderRadius: 30, backgroundColor: '#fdfdfb', marginBottom: 18 }, softShadow]}>
         <View
+          ref={sceneRef}
           onLayout={(e) => setSceneSize(e.nativeEvent.layout.width)}
           style={{ borderRadius: 24, overflow: 'hidden', aspectRatio: 1, backgroundColor: '#cfe6b8' }}
         >
@@ -201,7 +320,7 @@ export default function ForestScreen() {
                 shadow={TREE_SHADOW}
                 onDragActive={setDragging}
                 onDrop={moveTree}
-                onTap={() => {}}
+                onTap={promptPutAway}
               />
             )
           })}
@@ -238,7 +357,47 @@ export default function ForestScreen() {
             </View>
           </PressableScale>
         </Animated.View>
+
+        {/* Your Trees — inventory of unplanted trees */}
+        {unplacedTrees.length > 0 && (
+          <Animated.View entering={FadeInDown.duration(600).delay(200)} style={[{ backgroundColor: '#fff', borderRadius: 22, padding: 16, marginTop: 14 }, softShadow]}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: '#1f3a1a' }}>Your Trees</Text>
+            <Text style={{ fontSize: 14, color: '#4a6138', marginTop: 3, marginBottom: 14 }}>
+              Tap to plant, or hold and drag one into your forest
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              {unplacedTrees.map((row) => {
+                const species = treeById(row.item_id)
+                if (!species) return null
+                return (
+                  <TreeInventoryTile
+                    key={row.id}
+                    row={row}
+                    name={species.name}
+                    image={species.stages[0]}
+                    ghostX={ghostX}
+                    ghostY={ghostY}
+                    onDragStart={startInventoryDrag}
+                    onDragEnd={endInventoryDrag}
+                    onDrop={dropFromInventory}
+                    onTap={plantTree}
+                  />
+                )
+              })}
+            </View>
+          </Animated.View>
+        )}
       </ScrollView>
+
+      {/* Ghost sapling that follows the finger while dragging from Your Trees */}
+      {ghostRow && (
+        <Animated.View
+          pointerEvents="none"
+          style={[{ position: 'absolute', top: 0, left: 0, width: 72, height: 72, zIndex: 999 }, ghostStyle]}
+        >
+          <Image source={treeById(ghostRow.item_id)!.stages[0]} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+        </Animated.View>
+      )}
 
       {/* Info modal */}
       <Modal visible={introOpen} transparent animationType="slide">

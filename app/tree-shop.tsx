@@ -6,7 +6,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import { supabase } from '../src/lib/supabase'
 import { TREE_CATALOG, TreeSpecies } from '../src/lib/treeCatalog'
-import { DEFAULT_TREE_SPOTS } from '../src/lib/groveLayout'
 import { useAuthStore } from '../src/stores/authStore'
 import { useAcornStore } from '../src/stores/acornStore'
 
@@ -42,15 +41,15 @@ export default function TreeShopScreen() {
     setBuying(true)
     const ok = await spendAcorns(user.id, species.price)
     if (ok) {
-      const spot = DEFAULT_TREE_SPOTS[plantedCount % DEFAULT_TREE_SPOTS.length]
+      // Goes to the "Your Trees" inventory (grid null); the user plants it in the grove.
       await supabase.from('forest_items').insert({
         user_id: user.id,
         item_id: species.id,
-        grid_x: Math.round(spot.x * 1000),
-        grid_y: Math.round(spot.y * 1000),
+        grid_x: null,
+        grid_y: null,
       })
       setPlantedCount((c) => c + 1)
-      showToast(`${species.emoji} ${species.name} planted!`)
+      showToast(`${species.emoji} ${species.name} added to Your Trees!`)
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
     } else {
       showToast('Not enough acorns yet — keep logging!')
@@ -93,7 +92,7 @@ export default function TreeShopScreen() {
             const affordable = balance >= species.price
             return (
               <View key={species.id} style={{ width: '48%', backgroundColor: '#fff', borderRadius: 20, padding: 16, marginBottom: 14, alignItems: 'center', borderWidth: 1, borderColor: '#dbc2b0' }}>
-                <Image source={species.stages[species.stages.length - 1]} style={{ width: 72, height: 72, marginBottom: 8 }} resizeMode="contain" />
+                <Image source={species.stages[0]} style={{ width: 72, height: 72, marginBottom: 8 }} resizeMode="contain" />
                 <Text style={{ fontSize: 14, fontWeight: '700', color: '#1f1b17', textAlign: 'center' }}>{species.name}</Text>
                 <Text style={{ fontSize: 13, fontWeight: '600', color: '#8d4b00', marginTop: 4, marginBottom: 12 }}>🌰 {species.price}</Text>
                 <TouchableOpacity
@@ -113,7 +112,7 @@ export default function TreeShopScreen() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 40 }}>
             {confirm && (
-              <Image source={confirm.stages[confirm.stages.length - 1]} style={{ width: 84, height: 84, alignSelf: 'center', marginBottom: 12 }} resizeMode="contain" />
+              <Image source={confirm.stages[0]} style={{ width: 84, height: 84, alignSelf: 'center', marginBottom: 12 }} resizeMode="contain" />
             )}
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#1c1917', textAlign: 'center' }}>Plant {confirm?.name}?</Text>
             <Text style={{ fontSize: 14, color: '#78716c', textAlign: 'center', marginTop: 8, marginBottom: 28, lineHeight: 20 }}>

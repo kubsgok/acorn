@@ -181,8 +181,8 @@ export default function ProgressScreen() {
               {/* Balance */}
               <View style={{
                 flex: 1, backgroundColor: '#fff', borderRadius: 16,
-                borderWidth: 1, borderColor: '#e7e5e4',
                 padding: 16, alignItems: 'center', gap: 4,
+                shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
               }}>
                 <Text style={{ fontSize: 22 }}>🌰</Text>
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#78716c', letterSpacing: 0.3, textTransform: 'uppercase' }}>
@@ -194,8 +194,8 @@ export default function ProgressScreen() {
               {/* Streak */}
               <View style={{
                 flex: 1, backgroundColor: '#fff', borderRadius: 16,
-                borderWidth: 1, borderColor: '#e7e5e4',
                 padding: 16, alignItems: 'center', gap: 4,
+                shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
               }}>
                 <MaterialCommunityIcons name="fire" size={24} color="#f97316" />
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#78716c', letterSpacing: 0.3, textTransform: 'uppercase' }}>
@@ -207,8 +207,8 @@ export default function ProgressScreen() {
               {/* Adherence */}
               <View style={{
                 flex: 1, backgroundColor: '#fff', borderRadius: 16,
-                borderWidth: 1, borderColor: '#e7e5e4',
                 padding: 16, alignItems: 'center', gap: 4,
+                shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
               }}>
                 <MaterialCommunityIcons name="check-decagram" size={24} color="#006e2d" />
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#78716c', letterSpacing: 0.3, textTransform: 'uppercase' }}>
@@ -223,7 +223,7 @@ export default function ProgressScreen() {
             {/* Weekly adherence chart */}
             <View style={{
               backgroundColor: '#fff', borderRadius: 16,
-              borderWidth: 1, borderColor: '#e7e5e4',
+              shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
               padding: 16, marginBottom: 20,
             }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -305,7 +305,7 @@ export default function ProgressScreen() {
               {completedMilestones.map((m) => (
                 <View key={m.days} style={{
                   backgroundColor: '#fff', borderRadius: 16,
-                  borderWidth: 1, borderColor: '#e7e5e4',
+                  shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
                   borderLeftWidth: 4, borderLeftColor: '#006e2d',
                   padding: 16, flexDirection: 'row',
                   alignItems: 'center', justifyContent: 'space-between',
@@ -334,7 +334,7 @@ export default function ProgressScreen() {
               {nextMilestone && (
                 <View style={{
                   backgroundColor: '#fff', borderRadius: 16,
-                  borderWidth: 1, borderColor: '#e7e5e4',
+                  shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
                   borderLeftWidth: 4, borderLeftColor: '#f59e0b',
                   padding: 16, flexDirection: 'row',
                   alignItems: 'center', justifyContent: 'space-between',
@@ -379,7 +379,7 @@ export default function ProgressScreen() {
                   {futureMilestones.map((m) => (
                     <View key={m.days} style={{
                       width: 120, backgroundColor: '#fff',
-                      borderRadius: 16, borderWidth: 1, borderColor: '#e7e5e4',
+                      borderRadius: 16, shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
                       padding: 16, alignItems: 'center', gap: 8, opacity: 0.55,
                     }}>
                       <MaterialCommunityIcons name={m.icon} size={28} color="#a8a29e" />

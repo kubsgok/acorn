@@ -9,7 +9,7 @@ export interface ScenePos {
 }
 
 export const HORIZON_Y = 0.56 // sky above, grass below
-export const MAIN_TREE_POS: ScenePos = { x: 0.5, y: 0.7 }
+export const MAIN_TREE_POS: ScenePos = { x: 0.5, y: 0.86 } // feet on the front grass
 
 // Grass polygon (a gentle trapezoid — a bit wider at the front)
 const GROUND_POLY: ScenePos[] = [

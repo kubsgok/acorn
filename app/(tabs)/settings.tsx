@@ -181,7 +181,7 @@ export default function SettingsScreen() {
             activeOpacity={0.85}
             style={{
               backgroundColor: '#fff', borderRadius: 16, padding: 16,
-              borderWidth: 1, borderColor: '#e7e5e4',
+              shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
             }}
           >
@@ -201,7 +201,9 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={22} color="#a8a29e" />
+            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#fdf1e6', alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name="chevron-right" size={20} color="#b15f00" />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -221,7 +223,7 @@ export default function SettingsScreen() {
           ) : meds.length === 0 ? (
             <View style={{
               backgroundColor: '#fff', borderRadius: 16, padding: 24,
-              borderWidth: 1, borderColor: '#e7e5e4', alignItems: 'center', gap: 8,
+              shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3, alignItems: 'center', gap: 8,
             }}>
               <MaterialCommunityIcons name="pill-off" size={32} color="#a8a29e" />
               <Text style={{ color: '#78716c', fontSize: 14, textAlign: 'center' }}>
@@ -236,7 +238,7 @@ export default function SettingsScreen() {
                 return (
                   <View key={med.id} style={{
                     backgroundColor: '#fff', borderRadius: 16, padding: 16,
-                    borderWidth: 1, borderColor: '#e7e5e4',
+                    shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
                     borderLeftWidth: 4, borderLeftColor: med.color,
                     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                   }}>
@@ -348,7 +350,7 @@ export default function SettingsScreen() {
               placeholderTextColor="#a8a29e"
               placeholder="Enter a name..."
               style={{
-                borderWidth: 1, borderColor: '#e7e5e4', borderRadius: 14,
+                shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3, borderRadius: 14,
                 padding: 14, fontSize: 16, backgroundColor: '#fff8f5', marginBottom: 16,
               }}
             />
