@@ -50,7 +50,7 @@ export default function AddMedication() {
     if (!user) return
     await Promise.all([
       supabase.from('users').upsert({ id: user.id, email: user.email, squirrel_name: squirrelName }),
-      supabase.from('acorn_balance').upsert({ user_id: user.id, balance: 0, lifetime_earned: 0 }, { onConflict: 'user_id' }),
+      supabase.from('acorn_balance').upsert({ user_id: user.id, balance: 20, lifetime_earned: 20 }, { onConflict: 'user_id' }),
       supabase.from('streaks').upsert({ user_id: user.id, current_streak: 0, longest_streak: 0 }, { onConflict: 'user_id' }),
     ])
     router.push('/(onboarding)/notifications')
@@ -75,7 +75,7 @@ export default function AddMedication() {
       if (error) { Alert.alert('Error', error.message); return }
 
       await Promise.all([
-        supabase.from('acorn_balance').upsert({ user_id: user.id, balance: 0, lifetime_earned: 0 }, { onConflict: 'user_id' }),
+        supabase.from('acorn_balance').upsert({ user_id: user.id, balance: 20, lifetime_earned: 20 }, { onConflict: 'user_id' }),
         supabase.from('streaks').upsert({ user_id: user.id, current_streak: 0, longest_streak: 0 }, { onConflict: 'user_id' }),
       ])
 

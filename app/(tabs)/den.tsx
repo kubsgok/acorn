@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Pressable } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert, Pressable, Modal } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, router } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -38,10 +38,13 @@ import { ForestSquirrel } from '../../src/components/ForestSquirrel'
 import { ContactShadow } from '../../src/components/ContactShadow'
 import { StageCelebration } from '../../src/components/StageCelebration'
 import { DraggableDecoration } from '../../src/components/DraggableDecoration'
+import { DenIntroContent } from '../../src/components/DenIntro'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
+import { useT } from '../../src/lib/i18n'
 
 const CELEBRATED_STAGE_KEY = 'acorn:lastCelebratedStage'
+const DEN_INTRO_SEEN_KEY = 'acorn:denIntroSeen'
 // Drop an item here (bottom-right corner while dragging) to put it away
 const TRAY = { x: 0.74, y: 0.88 }
 
@@ -142,6 +145,7 @@ function InventoryTile({
 }
 
 export default function ForestScreen() {
+  const { t } = useT()
   const user = useAuthStore((s) => s.user)
   const balance = useAcornStore((s) => s.balance)
   const currentStreak = useAcornStore((s) => s.currentStreak)
@@ -151,6 +155,7 @@ export default function ForestScreen() {
   const [dragKind, setDragKind] = useState<'floor' | 'wall' | null>(null)
   const [sceneSize, setSceneSize] = useState(0)
   const [celebration, setCelebration] = useState<{ from: number; to: number } | null>(null)
+  const [introOpen, setIntroOpen] = useState(false)
 
   const sceneScale = useSharedValue(1)
   const sceneStyle = useAnimatedStyle(() => ({ transform: [{ scale: sceneScale.value }] }))
@@ -174,6 +179,13 @@ export default function ForestScreen() {
     if (!user) return
     let active = true
     ;(async () => {
+      // Show the intro popup the first time the den is opened
+      const seen = await AsyncStorage.getItem(DEN_INTRO_SEEN_KEY)
+      if (active && seen === null) {
+        setIntroOpen(true)
+        await AsyncStorage.setItem(DEN_INTRO_SEEN_KEY, '1')
+      }
+
       const [streak] = await Promise.all([recomputeStreak(user.id), loadAcorns(user.id)])
       const { data } = await supabase
         .from('forest_items')
@@ -316,10 +328,10 @@ export default function ForestScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
           <View>
             <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.3 }}>
-              Your Den
+              {t('den.header')}
             </Text>
             <Text style={{ fontSize: 14, color: '#554336', marginTop: 4 }}>
-              Your cozy corner of the forest
+              {t('den.sub')}
             </Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
@@ -347,6 +359,13 @@ export default function ForestScreen() {
               <MaterialCommunityIcons name="fire" size={15} color="#b15f00" />
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#8d4b00' }}>{currentStreak}d</Text>
             </View>
+            <TouchableOpacity
+              onPress={() => setIntroOpen(true)}
+              hitSlop={8}
+              style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#fdf1e6', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <MaterialCommunityIcons name="information-outline" size={18} color="#b15f00" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -571,6 +590,21 @@ export default function ForestScreen() {
           />
         </Animated.View>
       )}
+
+      {/* Info modal */}
+      <Modal visible={introOpen} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 40 }}>
+            <DenIntroContent />
+            <TouchableOpacity
+              onPress={() => setIntroOpen(false)}
+              style={{ backgroundColor: '#b15f00', borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 24 }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('common.gotIt')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }

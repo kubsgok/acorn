@@ -3,10 +3,12 @@ import { View, Text, TextInput, TouchableOpacity } from 'react-native'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuthStore } from '../../src/stores/authStore'
+import { useT } from '../../src/lib/i18n'
 
 const SUGGESTIONS = ['Pip', 'Hazel', 'Walnut', 'Chester', 'Nutmeg', 'Ember']
 
 export default function NameSquirrel() {
+  const { t } = useT()
   const setSquirrelName = useAuthStore((s) => s.setSquirrelName)
   const [name, setName] = useState('')
 
@@ -30,20 +32,20 @@ export default function NameSquirrel() {
           <Text style={{ fontSize: 38 }}>🐿️</Text>
         </View>
         <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.3 }}>
-          Name your squirrel
+          {t('squirrel.title')}
         </Text>
         <Text style={{ fontSize: 15, color: '#554336', marginTop: 8, marginBottom: 32, lineHeight: 22 }}>
-          They'll cheer you on every single day.
+          {t('squirrel.subtitle')}
         </Text>
 
         {/* Input */}
         <Text style={{ fontSize: 12, fontWeight: '600', color: '#554336', letterSpacing: 0.3, marginBottom: 8, marginLeft: 4 }}>
-          Squirrel name
+          {t('squirrel.label')}
         </Text>
         <TextInput
           value={name}
           onChangeText={setName}
-          placeholder="Enter a name..."
+          placeholder={t('squirrel.placeholder')}
           placeholderTextColor="#a8a29e"
           maxLength={20}
           style={{
@@ -55,7 +57,7 @@ export default function NameSquirrel() {
 
         {/* Suggestions */}
         <Text style={{ fontSize: 12, fontWeight: '600', color: '#a8a29e', letterSpacing: 0.3, marginBottom: 12, marginLeft: 4 }}>
-          Or pick one
+          {t('squirrel.pickOne')}
         </Text>
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 32 }}>
           {SUGGESTIONS.map((s) => {
@@ -88,7 +90,7 @@ export default function NameSquirrel() {
             shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Continue</Text>
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('common.continue')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

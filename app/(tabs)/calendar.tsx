@@ -8,11 +8,20 @@ import { useAuthStore } from '../../src/stores/authStore'
 
 type DayStatus = 'perfect' | 'partial' | 'missed' | 'none' | 'future'
 
+interface DoseEntry {
+  name: string
+  dose: string | null
+  color: string | null
+  status: string // on_time | late | missed | pending | skipped
+  time: string   // scheduled_at ISO
+}
+
 interface DayData {
   date: string // YYYY-MM-DD
   status: DayStatus
   taken: number
   total: number
+  doses: DoseEntry[]
 }
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -72,19 +81,27 @@ export function CalendarView() {
 
     const { data } = await supabase
       .from('medication_logs')
-      .select('scheduled_at, status')
+      .select('scheduled_at, status, medication:medications(name, dose, color)')
       .eq('user_id', user.id)
       .gte('scheduled_at', start.toISOString())
       .lte('scheduled_at', end.toISOString())
+      .order('scheduled_at')
 
     const map: Record<string, DayData> = {}
     const todayStr = toDateStr(today)
 
-    for (const row of data ?? []) {
+    for (const row of (data ?? []) as any[]) {
       const dateStr = row.scheduled_at.slice(0, 10)
-      if (!map[dateStr]) map[dateStr] = { date: dateStr, status: 'none', taken: 0, total: 0 }
+      if (!map[dateStr]) map[dateStr] = { date: dateStr, status: 'none', taken: 0, total: 0, doses: [] }
       map[dateStr].total++
       if (row.status === 'on_time' || row.status === 'late') map[dateStr].taken++
+      map[dateStr].doses.push({
+        name: row.medication?.name ?? 'Medication',
+        dose: row.medication?.dose ?? null,
+        color: row.medication?.color ?? null,
+        status: row.status,
+        time: row.scheduled_at,
+      })
     }
 
     for (const d of Object.values(map)) {
@@ -218,10 +235,10 @@ export function CalendarView() {
       {/* Selected day detail */}
       {selected && (
         <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 20, ...cardShadow }}>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: '#554336', letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 10 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#554336', letterSpacing: 0.3, textTransform: 'uppercase', marginBottom: 12 }}>
             {new Date(selected.date + 'T12:00:00').toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
           </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
             <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: statusBg(selected.status), alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontSize: 22 }}>{selected.status === 'perfect' ? '✅' : selected.status === 'partial' ? '⚠️' : '❌'}</Text>
             </View>
@@ -233,6 +250,35 @@ export function CalendarView() {
                   : 'No doses logged'}
               </Text>
             </View>
+          </View>
+
+          {/* Per-medication breakdown */}
+          <View style={{ borderTopWidth: 1, borderTopColor: '#f0e9e3', paddingTop: 4 }}>
+            {selected.doses.map((d, i) => {
+              const taken = d.status === 'on_time' || d.status === 'late'
+              const time = new Date(d.time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+              return (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: i < selected.doses.length - 1 ? 1 : 0, borderBottomColor: '#f5f0ec' }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: d.color || '#c9b8a8', marginRight: 12 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: '600', color: '#1f1b17' }}>
+                      {d.name}{d.dose ? <Text style={{ fontWeight: '400', color: '#8a7a6c' }}>  {d.dose}</Text> : null}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: '#a8a29e', marginTop: 1 }}>Scheduled {time}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <Ionicons
+                      name={taken ? 'checkmark-circle' : d.status === 'pending' ? 'ellipse-outline' : 'close-circle'}
+                      size={18}
+                      color={taken ? '#006e2d' : d.status === 'pending' ? '#a8a29e' : '#ba1a1a'}
+                    />
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: taken ? '#006e2d' : d.status === 'pending' ? '#a8a29e' : '#ba1a1a' }}>
+                      {d.status === 'on_time' ? 'On time' : d.status === 'late' ? 'Late' : d.status === 'pending' ? 'Pending' : d.status === 'skipped' ? 'Skipped' : 'Missed'}
+                    </Text>
+                  </View>
+                </View>
+              )
+            })}
           </View>
         </View>
       )}

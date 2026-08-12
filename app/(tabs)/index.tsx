@@ -7,6 +7,7 @@ import { supabase } from '../../src/lib/supabase'
 import { markMissedDoses, recomputeStreak } from '../../src/lib/streaks'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
+import { useT } from '../../src/lib/i18n'
 
 interface MedLog {
   id: string
@@ -57,8 +58,10 @@ function getMoodMessage(squirrelName: string, allDone: boolean, overdueLogs: Med
 }
 
 export default function HomeScreen() {
+  const { t } = useT()
   const user = useAuthStore((s) => s.user)
   const squirrelName = useAuthStore((s) => s.squirrelName)
+  const preferredName = useAuthStore((s) => s.preferredName)
   const { balance, currentStreak, load: loadAcorns, addAcorns } = useAcornStore()
   const [logs, setLogs] = useState<MedLog[]>([])
   const [loading, setLoading] = useState(true)
@@ -201,6 +204,9 @@ export default function HomeScreen() {
   const allDone = logs.length > 0 && logs.every((l) => l.status !== 'pending')
 
   const today = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+  const hour = new Date().getHours()
+  const timeGreeting = hour < 12 ? t('today.morning') : hour < 18 ? t('today.afternoon') : t('today.evening')
+  const greeting = preferredName ? `${timeGreeting}, ${preferredName}` : 'Acorn'
 
   function renderLog(log: MedLog, overdue = false) {
     const isPending = log.status === 'pending'
@@ -326,7 +332,7 @@ export default function HomeScreen() {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <View>
               <Text style={{ fontSize: 26, fontWeight: '800', color: '#1c1917', letterSpacing: -0.5 }}>
-                Acorn
+                {greeting}
               </Text>
               <Text style={{ fontSize: 13, color: '#a8a29e', marginTop: 2 }}>{today}</Text>
             </View>

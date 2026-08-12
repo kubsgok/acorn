@@ -1,10 +1,44 @@
 # Acorn — Status & TODO
 
-_Last updated: July 13, 2026 (forest feature build)_
+_Last updated: August 13, 2026 (tree-forest, demographics, i18n, edit-meds build)_
 
 ---
 
 ## ✅ Completed
+
+### Session — Aug 13, 2026 (branch `feature/tree-forest`)
+
+**Tree Forest (new flagship "Forest" tab) + Den rename**
+- New outdoor grove (`app/(tabs)/forest.tsx`) is the app's landing tab: a central **main tree** that grows with the streak (thresholds 1/3/7/14/30, wilts back when the streak breaks) and buyable **tree species** you plant on the grass. The old room feature was renamed **"Den"** (`app/(tabs)/den.tsx`), logic unchanged.
+- **Growth engine** `src/lib/treeGrowth.ts`: `mainTreeStage(streak)`, `plantedTreeStage(placedAt, compliantDays)` (one stage per compliant day after planting, clamped), `loadGrove()` splits rows into planted vs. inventory in one query. `src/lib/treeCatalog.ts` — 3 species (Pine 20, Maple 40, Cherry Blossom 70). `src/lib/groveLayout.ts` — ground polygon, depth scaling, main-tree position.
+- **Tree shop** `app/tree-shop.tsx`: buy with acorns → tree lands in a **"Your Trees"** inventory (as a sapling). **Plant/arrange**: tap or long-press-drag an inventory tree into the grove (ghost follows finger); drag placed trees to reposition; tap a planted tree to **put it away** back to inventory.
+- **Milestone popups** at 3/7/14/30-day streaks award bonus acorns (15/25/40/60), fire once ever (gated on `longestStreak` via AsyncStorage).
+- **First-open intro popups + (i) info buttons** on both Forest and Den; shared explainer components (`ForestIntro`, `DenIntro`).
+- Real illustrated art installed + optimized (grove background, 6 main-tree stages, 3 stages × 3 species), normalized to bottom-anchor and downscaled (~44MB → ~10MB) to fix slow image loading.
+- **Planted-tree sizing** tuned so a fresh sapling reads clearly and mature trees stand taller (`TREE_WIDTH_FACTOR` + per-stage bump in `forest.tsx`).
+
+**Onboarding: demographics + feature intros**
+- New **"A bit about you"** step (`app/(onboarding)/about-you.tsx`): full name, preferred name, birthday (auto-fills age), sex, country, and multi-select "what do you want from Acorn?" goals + open-ended text. Saved to new `users` columns (see schema SQL). Flow: welcome → **about-you** → name-squirrel → add-med → schedule → notifications → **forest-intro** → **den-intro** → app.
+- **Preferred name** is stored in `authStore` (+ `loadProfile` hydration on boot) and used to address the user: Today greeting ("Good morning, Alex") and the squirrel chat system prompt.
+
+**Edit medications**
+- `app/medication/new.tsx` now doubles as an editor when opened with an `id` (prefills fields + schedule times; "Save Changes"). Settings gained a **pencil** button per med. Schedules reconcile in place (kept rows updated so today's log links survive; removed rows unlinked from logs before delete to avoid FK errors).
+
+**Starting acorns**
+- New accounts start with **20 acorns** (set at onboarding) + the existing **10** finish-setup bonus = **30**, enough to buy the first tree.
+
+**Language toggle (i18n)**
+- `src/lib/i18n.ts`: EN / ES / FR / 中文, persisted to AsyncStorage, hydrated at boot, live re-render via `useT()`. Toggle in **Settings** (flag chips) and a **small toggle on the login screen**. Core screens translated: auth, all onboarding, tab labels, Today greeting, Forest/Den headers + intros, Settings.
+
+**Calendar**
+- Tapping a day now shows a **per-medication breakdown** (each dose's name, dose, scheduled time, and On-time/Late/Missed/Pending status), not just an aggregate.
+
+**Today**
+- **"Take all medications"** button logs every pending dose at once (with confirm sheet). Soft-shadow visual polish across Today / Progress / Settings; Calendar merged into the Progress tab via a segmented toggle.
+
+**DB schema (run in Supabase):** `users` gained `full_name, preferred_name, age, sex, birthday, country, acorn_goals[], acorn_goals_other` (ALTER statements in `supabase-schema.sql`).
+
+
 
 ### Streak & missed-dose engine (new — this was the critical gap)
 Before this build, **the streak was never updated anywhere** — `logDose` awarded acorns but nothing wrote to the `streaks` table, so the streak was permanently 0 and the forest could never grow.
@@ -78,8 +112,8 @@ Nothing has been exercised on a real device/simulator with a logged-in account y
 ### 2. Notification scheduling (pre-existing, HIGH)
 Permission is requested during onboarding but **no notifications ever fire**. Need to schedule local notifications (`expo-notifications`) per medication schedule (`medication_schedules.time_of_day` × `medications.days_of_week`), and reschedule on medication add/edit/delete.
 
-### 3. Edit medication screen (pre-existing, HIGH)
-No way to change an existing medication. Add `/medication/[id]` reusing the form from `app/medication/new.tsx` (name, dose, notes, color, days, time slots), pre-filled, with update instead of insert.
+### 3. ~~Edit medication screen~~ ✅ DONE (Aug 13)
+`app/medication/new.tsx` now handles both add and edit (open with an `id` param; pencil button in Settings). Schedules reconcile in place.
 
 ---
 

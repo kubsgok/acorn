@@ -1,23 +1,23 @@
 import { View, Text } from 'react-native'
 import { useT } from '../lib/i18n'
 
-// Shared explainer content for the tree-forest feature. Used both as an
-// onboarding step and as the (i) info modal on the Forest tab.
-export function ForestIntroContent() {
+// Shared explainer content for the den (decorate-your-room) feature. Used both
+// as an onboarding step and as the (i) info modal on the Den tab.
+export function DenIntroContent() {
   const { t } = useT()
   const rows = [
-    { emoji: '🌱', title: t('intro.forest.r1t'), body: t('intro.forest.r1b') },
-    { emoji: '🌰', title: t('intro.forest.r2t'), body: t('intro.forest.r2b') },
-    { emoji: '🌳', title: t('intro.forest.r3t'), body: t('intro.forest.r3b') },
+    { emoji: '🏡', title: t('intro.den.r1t'), body: t('intro.den.r1b') },
+    { emoji: '🌰', title: t('intro.den.r2t'), body: t('intro.den.r2b') },
+    { emoji: '🛋️', title: t('intro.den.r3t'), body: t('intro.den.r3b') },
   ]
   return (
     <View>
-      <Text style={{ fontSize: 40, textAlign: 'center' }}>🌲</Text>
+      <Text style={{ fontSize: 40, textAlign: 'center' }}>🏡</Text>
       <Text style={{ fontSize: 22, fontWeight: '800', color: '#1f1b17', textAlign: 'center', marginTop: 8 }}>
-        {t('intro.forest.title')}
+        {t('intro.den.title')}
       </Text>
       <Text style={{ fontSize: 14, color: '#78716c', textAlign: 'center', marginTop: 6, marginBottom: 20, lineHeight: 20 }}>
-        {t('intro.forest.lead')}
+        {t('intro.den.lead')}
       </Text>
       <View style={{ gap: 16 }}>
         {rows.map((r) => (

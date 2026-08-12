@@ -4,8 +4,10 @@ import { Link, router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
+import { useT } from '../../src/lib/i18n'
 
 export default function Register() {
+  const { t } = useT()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -36,16 +38,16 @@ export default function Register() {
               <Text style={{ fontSize: 42 }}>🌰</Text>
             </View>
             <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.5 }}>
-              Create account
+              {t('register.title')}
             </Text>
             <Text style={{ fontSize: 15, color: '#554336', marginTop: 6 }}>
-              Your squirrel is waiting.
+              {t('register.subtitle')}
             </Text>
           </View>
 
           {/* Email */}
           <Text style={{ fontSize: 12, fontWeight: '600', color: '#554336', letterSpacing: 0.3, marginBottom: 6, marginLeft: 4 }}>
-            Email
+            {t('auth.email')}
           </Text>
           <TextInput
             value={email}
@@ -63,7 +65,7 @@ export default function Register() {
 
           {/* Password */}
           <Text style={{ fontSize: 12, fontWeight: '600', color: '#554336', letterSpacing: 0.3, marginBottom: 6, marginLeft: 4 }}>
-            Password
+            {t('auth.password')}
           </Text>
           <View style={{ position: 'relative', marginBottom: 28 }}>
             <TextInput
@@ -100,15 +102,15 @@ export default function Register() {
           >
             {loading
               ? <ActivityIndicator color="#fff" />
-              : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Create account</Text>
+              : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('register.button')}</Text>
             }
           </TouchableOpacity>
 
           {/* Login link */}
           <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24, gap: 4 }}>
-            <Text style={{ color: '#554336', fontSize: 14 }}>Already have an account?</Text>
+            <Text style={{ color: '#554336', fontSize: 14 }}>{t('register.haveAccount')}</Text>
             <Link href="/(auth)/login">
-              <Text style={{ color: '#b15f00', fontWeight: '700', fontSize: 14 }}>Log in</Text>
+              <Text style={{ color: '#b15f00', fontWeight: '700', fontSize: 14 }}>{t('register.login')}</Text>
             </Link>
           </View>
         </View>

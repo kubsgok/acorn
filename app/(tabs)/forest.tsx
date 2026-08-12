@@ -29,8 +29,10 @@ import { StageCelebration } from '../../src/components/StageCelebration'
 import { ForestIntroContent } from '../../src/components/ForestIntro'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
+import { useT } from '../../src/lib/i18n'
 
 const REWARDED_MILESTONE_KEY = 'acorn:lastRewardedMilestone'
+const FOREST_INTRO_SEEN_KEY = 'acorn:forestIntroSeen'
 const MILESTONES = [
   { days: 3, bonus: 15, emoji: '🌿' },
   { days: 7, bonus: 25, emoji: '🌲' },
@@ -39,6 +41,17 @@ const MILESTONES = [
 ]
 const TREE_SHADOW = { centerX: 0.5, baseY: 0.97, widthPct: 0.44 }
 const MAIN_WIDTH = 0.42 // main tree width as a fraction of the scene
+
+// Planted trees reuse the den's DraggableDecoration, whose base is
+// DECORATION_WIDTH (0.16). That's too small for the grove — a fresh sapling
+// looked like a speck next to the main tree. Scale grove trees up, with a
+// gentle per-stage bump so a sapling still reads clearly and a mature tree
+// stands taller. Values are multipliers applied to depthScale.
+const TREE_WIDTH_FACTOR = 1.6
+const TREE_STAGE_BUMP = [1.0, 1.18, 1.34] // sapling → young → mature
+function treeDepthScale(y: number, stage: number): number {
+  return depthFor(y) * TREE_WIDTH_FACTOR * (TREE_STAGE_BUMP[stage] ?? 1)
+}
 
 // Soft, diffused, color-tinted ambient shadow (no harsh dark drop shadows).
 const softShadow = {
@@ -130,6 +143,7 @@ function MainTree({ stage }: { stage: number }) {
 }
 
 export default function ForestScreen() {
+  const { t } = useT()
   const user = useAuthStore((s) => s.user)
   const balance = useAcornStore((s) => s.balance)
   const currentStreak = useAcornStore((s) => s.currentStreak)
@@ -161,6 +175,13 @@ export default function ForestScreen() {
     if (!user) return
     let active = true
     ;(async () => {
+      // Show the intro popup the first time the forest is opened
+      const seen = await AsyncStorage.getItem(FOREST_INTRO_SEEN_KEY)
+      if (active && seen === null) {
+        setIntroOpen(true)
+        await AsyncStorage.setItem(FOREST_INTRO_SEEN_KEY, '1')
+      }
+
       const streak = await recomputeStreak(user.id)
       const grove = await loadGrove(user.id, TREE_IDS)
       if (!active) return
@@ -273,8 +294,8 @@ export default function ForestScreen() {
         {/* Header */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 30, fontWeight: '800', color: '#1f3a1a', letterSpacing: -0.6 }}>Your Forest</Text>
-            <Text style={{ fontSize: 14, color: '#4a6138', marginTop: 4 }}>Grows with every streak</Text>
+            <Text style={{ fontSize: 30, fontWeight: '800', color: '#1f3a1a', letterSpacing: -0.6 }}>{t('forest.header')}</Text>
+            <Text style={{ fontSize: 14, color: '#4a6138', marginTop: 4 }}>{t('forest.sub')}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fef3c7', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
@@ -315,7 +336,7 @@ export default function ForestScreen() {
                 image={species.stages[obj.tree.stage]}
                 pos={pos}
                 kind="floor"
-                depthScale={depthFor(obj.tree.y)}
+                depthScale={treeDepthScale(obj.tree.y, obj.tree.stage)}
                 sceneSize={sceneSize}
                 shadow={TREE_SHADOW}
                 onDragActive={setDragging}
@@ -348,8 +369,8 @@ export default function ForestScreen() {
                 <MaterialCommunityIcons name="tree-outline" size={24} color="#3f7d34" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 16, fontWeight: '800', color: '#1f3a1a' }}>Plant a tree</Text>
-                <Text style={{ fontSize: 14, color: '#4a6138', marginTop: 3 }}>Spend acorns to grow your forest</Text>
+                <Text style={{ fontSize: 16, fontWeight: '800', color: '#1f3a1a' }}>{t('forest.plantTree')}</Text>
+                <Text style={{ fontSize: 14, color: '#4a6138', marginTop: 3 }}>{t('forest.plantTreeSub')}</Text>
               </View>
               <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#eef5e5', alignItems: 'center', justifyContent: 'center' }}>
                 <MaterialCommunityIcons name="chevron-right" size={20} color="#3f7d34" />
@@ -361,9 +382,9 @@ export default function ForestScreen() {
         {/* Your Trees — inventory of unplanted trees */}
         {unplacedTrees.length > 0 && (
           <Animated.View entering={FadeInDown.duration(600).delay(200)} style={[{ backgroundColor: '#fff', borderRadius: 22, padding: 16, marginTop: 14 }, softShadow]}>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: '#1f3a1a' }}>Your Trees</Text>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: '#1f3a1a' }}>{t('forest.yourTrees')}</Text>
             <Text style={{ fontSize: 14, color: '#4a6138', marginTop: 3, marginBottom: 14 }}>
-              Tap to plant, or hold and drag one into your forest
+              {t('forest.yourTreesSub')}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
               {unplacedTrees.map((row) => {
@@ -408,7 +429,7 @@ export default function ForestScreen() {
               onPress={() => setIntroOpen(false)}
               style={{ backgroundColor: '#3f7d34', borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 24 }}
             >
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Got it</Text>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('common.gotIt')}</Text>
             </TouchableOpacity>
           </View>
         </View>

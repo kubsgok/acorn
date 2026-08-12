@@ -20,6 +20,7 @@ interface ChatMessage {
 
 interface UserContext {
   squirrelName: string
+  userName: string | null
   streak: number
   longestStreak: number
   balance: number
@@ -40,6 +41,8 @@ function buildSystemPrompt(ctx: UserContext): string {
     : '  (no logs yet today)'
 
   return `You are ${ctx.squirrelName}, a warm and encouraging squirrel companion in Acorn, a medication tracking app. You live in the user's digital forest, which grows as they stick to their medication routine.
+
+${ctx.userName ? `The user's name is ${ctx.userName} — address them warmly by this name sometimes (don't overuse it).` : ''}
 
 USER'S CURRENT STATE:
 - Streak: ${ctx.streak} day${ctx.streak !== 1 ? 's' : ''} (longest ever: ${ctx.longestStreak} days)
@@ -120,6 +123,7 @@ async function callClaude(systemPrompt: string, history: { role: string; content
 export default function ChatScreen() {
   const user = useAuthStore((s) => s.user)
   const squirrelName = useAuthStore((s) => s.squirrelName)
+  const preferredName = useAuthStore((s) => s.preferredName)
   const { balance, currentStreak, longestStreak } = useAcornStore()
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -174,6 +178,7 @@ export default function ChatScreen() {
 
     const ctx: UserContext = {
       squirrelName: name,
+      userName: preferredName,
       streak: currentStreak,
       longestStreak,
       balance,

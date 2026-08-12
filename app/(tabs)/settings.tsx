@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { supabase } from '../../src/lib/supabase'
 import { useAuthStore } from '../../src/stores/authStore'
+import { useT, LANGUAGES } from '../../src/lib/i18n'
 
 interface Med {
   id: string
@@ -17,6 +18,7 @@ interface Med {
 }
 
 export default function SettingsScreen() {
+  const { t, lang, setLang } = useT()
   const user = useAuthStore((s) => s.user)
   const squirrelName = useAuthStore((s) => s.squirrelName)
   const setSquirrelName = useAuthStore((s) => s.setSquirrelName)
@@ -174,7 +176,7 @@ export default function SettingsScreen() {
         {/* Identity section */}
         <View style={{ marginBottom: 28 }}>
           <Text style={{ fontSize: 14, fontWeight: '600', color: '#554336', marginBottom: 10, paddingHorizontal: 2 }}>
-            Identity
+            {t('settings.identity')}
           </Text>
           <TouchableOpacity
             onPress={openNameEdit}
@@ -194,7 +196,7 @@ export default function SettingsScreen() {
               </View>
               <View>
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#78716c', letterSpacing: 0.3, textTransform: 'uppercase' }}>
-                  Squirrel Name
+                  {t('settings.squirrelName')}
                 </Text>
                 <Text style={{ fontSize: 18, fontWeight: '700', color: '#1f1b17', marginTop: 2 }}>
                   {squirrelName ?? 'Unnamed'}
@@ -207,13 +209,48 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Language section */}
+        <View style={{ marginBottom: 28 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#554336', marginBottom: 10, paddingHorizontal: 2 }}>
+            {t('common.language')}
+          </Text>
+          <View style={{
+            backgroundColor: '#fff', borderRadius: 16, padding: 8,
+            shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
+            flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+          }}>
+            {LANGUAGES.map((l) => {
+              const active = lang === l.code
+              return (
+                <TouchableOpacity
+                  key={l.code}
+                  onPress={() => setLang(l.code)}
+                  activeOpacity={0.85}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 8,
+                    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+                    backgroundColor: active ? '#fef3c7' : '#fff8f5',
+                    borderWidth: 1, borderColor: active ? '#e7c76a' : '#f0e6da',
+                  }}
+                >
+                  <Text style={{ fontSize: 16 }}>{l.flag}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: active ? '700' : '500', color: active ? '#8d4b00' : '#554336' }}>
+                    {l.label}
+                  </Text>
+                  {active && <MaterialCommunityIcons name="check" size={16} color="#8d4b00" />}
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+        </View>
+
         {/* Medications section */}
         <View style={{ marginBottom: 28 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, paddingHorizontal: 2 }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#554336' }}>My Medications</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: '#554336' }}>{t('settings.myMeds')}</Text>
             {activeMeds > 0 && (
               <Text style={{ fontSize: 11, fontWeight: '700', color: '#b15f00', letterSpacing: 0.5 }}>
-                {activeMeds} ACTIVE
+                {t('settings.active', { n: activeMeds })}
               </Text>
             )}
           </View>
@@ -227,7 +264,7 @@ export default function SettingsScreen() {
             }}>
               <MaterialCommunityIcons name="pill-off" size={32} color="#a8a29e" />
               <Text style={{ color: '#78716c', fontSize: 14, textAlign: 'center' }}>
-                No medications added yet.
+                {t('settings.noMeds')}
               </Text>
             </View>
           ) : (
@@ -269,8 +306,15 @@ export default function SettingsScreen() {
                       )}
                     </View>
                     <TouchableOpacity
+                      onPress={() => router.push({ pathname: '/medication/new', params: { id: med.id } })}
+                      style={{ padding: 8, marginLeft: 4 }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <MaterialCommunityIcons name="pencil-outline" size={21} color="#b15f00" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
                       onPress={() => deleteMed(med.id)}
-                      style={{ padding: 8, marginLeft: 8 }}
+                      style={{ padding: 8 }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <MaterialCommunityIcons name="delete-outline" size={22} color="#a8a29e" />
@@ -293,7 +337,7 @@ export default function SettingsScreen() {
             }}
           >
             <MaterialCommunityIcons name="plus-circle-outline" size={20} color="#fff" />
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>Add Medication</Text>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{t('settings.addMed')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -308,11 +352,11 @@ export default function SettingsScreen() {
             }}
           >
             <MaterialCommunityIcons name="logout" size={18} color="#554336" />
-            <Text style={{ color: '#554336', fontSize: 15, fontWeight: '600' }}>Sign out</Text>
+            <Text style={{ color: '#554336', fontSize: 15, fontWeight: '600' }}>{t('settings.signOut')}</Text>
           </TouchableOpacity>
 
           <Text style={{ textAlign: 'center', fontSize: 11, fontWeight: '600', color: '#a8a29e', letterSpacing: 0.5 }}>
-            ACORN • MADE WITH CARE
+            {t('settings.tagline')}
           </Text>
         </View>
       </ScrollView>
@@ -337,10 +381,10 @@ export default function SettingsScreen() {
               <Text style={{ fontSize: 24 }}>🐿️</Text>
             </View>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#1f1b17', textAlign: 'center' }}>
-              Rename your squirrel
+              {t('settings.rename')}
             </Text>
             <Text style={{ fontSize: 14, color: '#78716c', textAlign: 'center', marginTop: 6, marginBottom: 24 }}>
-              What would you like to call them?
+              {t('settings.renameSub')}
             </Text>
             <TextInput
               value={nameInput}
@@ -348,7 +392,7 @@ export default function SettingsScreen() {
               autoFocus
               maxLength={20}
               placeholderTextColor="#a8a29e"
-              placeholder="Enter a name..."
+              placeholder={t('squirrel.placeholder')}
               style={{
                 shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3, borderRadius: 14,
                 padding: 14, fontSize: 16, backgroundColor: '#fff8f5', marginBottom: 16,
@@ -358,10 +402,10 @@ export default function SettingsScreen() {
               onPress={saveName}
               style={{ backgroundColor: '#b15f00', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 10 }}
             >
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Save</Text>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('common.save')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setEditingName(false)} style={{ padding: 12, alignItems: 'center' }}>
-              <Text style={{ color: '#a8a29e', fontWeight: '600' }}>Cancel</Text>
+              <Text style={{ color: '#a8a29e', fontWeight: '600' }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>

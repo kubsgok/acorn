@@ -7,6 +7,19 @@ A medication tracker with gamification. Users log their medications, earn acorns
 
 ## Done
 
+### Latest — Aug 13, 2026 (branch `feature/tree-forest`)
+- [x] **Tree Forest tab** (grove): streak-driven main tree (grows 1/3/7/14/30, wilts on break) + buyable tree species planted on the grass, growing one stage per compliant day
+- [x] **Den** = the old room feature, renamed; both Forest & Den have first-open intro popups + (i) info buttons
+- [x] **Tree shop** → "Your Trees" inventory → tap/drag to plant, drag to reposition, tap to put away
+- [x] **Milestone popups** (3/7/14/30d) award bonus acorns, once ever
+- [x] Real grove/tree art installed, normalized + optimized (fixed slow image loading); planted-tree sizes tuned
+- [x] **Onboarding demographics** ("About you": name, preferred name, birthday/age, sex, country, goals) saved to `users`; preferred name used in Today greeting + chat
+- [x] **Edit medication** — `medication/new.tsx` now edits when given an `id`; pencil button in Settings
+- [x] **Starting acorns** — new users begin with 20 (+10 finish-setup bonus = 30)
+- [x] **Language toggle (i18n)** — EN/ES/FR/中文; Settings section + small login toggle; core screens translated
+- [x] **Calendar day breakdown** — tap a day shows per-medication taken/missed/pending
+- [x] **"Take all medications"** button on Today; soft-shadow visual polish; Calendar merged into Progress
+
 ### Auth
 - [x] Login screen — centered logo, show/hide password, rounded button
 - [x] Register screen — same design system
@@ -81,13 +94,13 @@ A medication tracker with gamification. Users log their medications, earn acorns
 ## To Do
 
 ### High priority
-- [ ] **Edit medication screen** (`/medication/[id]`) — tap a med in settings to edit name, dose, notes, color, schedule
+- [x] ~~**Edit medication screen**~~ — done (Aug 13): `medication/new.tsx` edits when given an `id`
+- [x] ~~**Missed dose logic**~~ — done: `markMissedDoses` + streak recompute in `src/lib/streaks.ts`
 - [ ] **Notification scheduling** — permission is requested but actual local notifications are not scheduled. Need to use `expo-notifications` to schedule daily reminders based on medication times
-- [ ] **Missed dose logic** — doses that pass without being logged should auto-update to `missed` status and affect streak calculation
 
-### Forest
-- [ ] **Forest visual** — the current forest is a simple emoji list; needs a proper illustrated design (see concept image)
-- [ ] **Shop** — buy items with acorns to decorate the forest (post-MVP, DB tables already designed)
+### Forest / Den
+- [x] ~~**Forest visual**~~ — done: illustrated grove (Forest tab) + furnished room (Den tab)
+- [x] ~~**Shop**~~ — done: den decoration shop (`/shop`) + tree shop (`/tree-shop`)
 - [ ] **Tab gating** — optionally hide the forest tab until day 3 streak
 
 ### Progress & Streaks
@@ -110,7 +123,7 @@ A medication tracker with gamification. Users log their medications, earn acorns
 
 | Table | Purpose |
 |---|---|
-| `users` | Profile (squirrel name, email) |
+| `users` | Profile (squirrel name, email, demographics: full/preferred name, age, sex, birthday, country, acorn goals) |
 | `medications` | Name, dose, notes, color per medication |
 | `medication_schedules` | Days of week + times per medication |
 | `medication_logs` | Take/skip events with timestamp and status |

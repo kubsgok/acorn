@@ -6,14 +6,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
+import { useT } from '../../src/lib/i18n'
 
 const BULLETS = [
-  { icon: 'clock-outline' as const, text: 'A reminder at your scheduled time' },
-  { icon: 'bell-ring-outline' as const, text: 'A follow-up 2 hours later if not logged' },
-  { icon: 'tune-variant' as const, text: 'No more than 2 notifications per dose' },
+  { icon: 'clock-outline' as const, key: 'notif.b1' },
+  { icon: 'bell-ring-outline' as const, key: 'notif.b2' },
+  { icon: 'tune-variant' as const, key: 'notif.b3' },
 ]
 
 export default function NotificationsScreen() {
+  const { t } = useT()
   const user = useAuthStore((s) => s.user)
   const setOnboardingDone = useAuthStore((s) => s.setOnboardingDone)
   const addAcorns = useAcornStore((s) => s.addAcorns)
@@ -45,10 +47,10 @@ export default function NotificationsScreen() {
           <MaterialCommunityIcons name="bell-outline" size={34} color="#b15f00" />
         </View>
         <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.3 }}>
-          Let {squirrelName} nudge you
+          {t('notif.title', { name: squirrelName })}
         </Text>
         <Text style={{ fontSize: 15, color: '#554336', marginTop: 8, marginBottom: 32, lineHeight: 22 }}>
-          {squirrelName} will remind you when it's time to take your medication.
+          {t('notif.subtitle', { name: squirrelName })}
         </Text>
 
         {/* Info card */}
@@ -57,10 +59,10 @@ export default function NotificationsScreen() {
           borderWidth: 1, borderColor: '#dbc2b0', marginBottom: 40, gap: 16,
         }}>
           <Text style={{ fontSize: 13, fontWeight: '700', color: '#554336', letterSpacing: 0.3, textTransform: 'uppercase' }}>
-            What to expect
+            {t('notif.whatToExpect')}
           </Text>
           {BULLETS.map((b) => (
-            <View key={b.text} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <View key={b.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
               <View style={{
                 width: 36, height: 36, borderRadius: 10,
                 backgroundColor: '#fef3c7',
@@ -68,7 +70,7 @@ export default function NotificationsScreen() {
               }}>
                 <MaterialCommunityIcons name={b.icon} size={18} color="#b15f00" />
               </View>
-              <Text style={{ fontSize: 14, color: '#554336', flex: 1, lineHeight: 20 }}>{b.text}</Text>
+              <Text style={{ fontSize: 14, color: '#554336', flex: 1, lineHeight: 20 }}>{t(b.key)}</Text>
             </View>
           ))}
         </View>
@@ -80,7 +82,7 @@ export default function NotificationsScreen() {
         }}>
           <Text style={{ fontSize: 24 }}>🌰</Text>
           <Text style={{ fontSize: 14, color: '#8d4b00', fontWeight: '600', flex: 1 }}>
-            You'll earn 10 bonus acorns for finishing setup!
+            {t('notif.bonus')}
           </Text>
         </View>
 
@@ -96,11 +98,11 @@ export default function NotificationsScreen() {
             shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Allow notifications</Text>
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('notif.allow')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={finish} style={{ padding: 12, alignItems: 'center', marginBottom: 8 }}>
-          <Text style={{ color: '#a8a29e', fontSize: 14, fontWeight: '600' }}>Skip for now</Text>
+          <Text style={{ color: '#a8a29e', fontSize: 14, fontWeight: '600' }}>{t('notif.skip')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

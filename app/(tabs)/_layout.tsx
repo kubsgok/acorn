@@ -1,7 +1,9 @@
 import { Tabs } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { useT } from '../../src/lib/i18n'
 
 export default function TabsLayout() {
+  const { t } = useT()
   return (
     <Tabs
       screenOptions={{
@@ -15,28 +17,28 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Today',
+          title: t('tab.today'),
           tabBarIcon: ({ color, size }) => <Ionicons name="today-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="forest"
         options={{
-          title: 'Forest',
+          title: t('tab.forest'),
           tabBarIcon: ({ color, size }) => <Ionicons name="leaf-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="den"
         options={{
-          title: 'Den',
+          title: t('tab.den'),
           tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="progress"
         options={{
-          title: 'Progress',
+          title: t('tab.progress'),
           tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} />,
         }}
       />
@@ -45,7 +47,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: t('tab.settings'),
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
         }}
       />
