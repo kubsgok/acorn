@@ -1,7 +1,9 @@
 import { Tabs } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
+import { useT } from '../../src/lib/i18n'
 
 export default function TabsLayout() {
+  const { t } = useT()
   return (
     <Tabs
       screenOptions={{
@@ -15,35 +17,37 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Today',
+          title: t('tab.today'),
           tabBarIcon: ({ color, size }) => <Ionicons name="today-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="progress"
-        options={{
-          title: 'Progress',
-          tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="forest"
         options={{
-          title: 'Forest',
+          title: t('tab.forest'),
           tabBarIcon: ({ color, size }) => <Ionicons name="leaf-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
-        name="calendar"
+        name="den"
         options={{
-          title: 'Calendar',
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
+          title: t('tab.den'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
+        name="progress"
+        options={{
+          title: t('tab.progress'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} />,
+        }}
+      />
+      {/* Calendar is merged into the Progress tab; keep the route reachable but hidden from the tab bar */}
+      <Tabs.Screen name="calendar" options={{ href: null }} />
+      <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: t('tab.settings'),
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
         }}
       />

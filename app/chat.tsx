@@ -20,6 +20,7 @@ interface ChatMessage {
 
 interface UserContext {
   squirrelName: string
+  userName: string | null
   streak: number
   longestStreak: number
   balance: number
@@ -41,9 +42,11 @@ function buildSystemPrompt(ctx: UserContext): string {
 
   return `You are ${ctx.squirrelName}, a warm and encouraging squirrel companion in Acorn, a medication tracking app. You live in the user's digital forest, which grows as they stick to their medication routine.
 
+${ctx.userName ? `The user's name is ${ctx.userName} — address them warmly by this name sometimes (don't overuse it).` : ''}
+
 USER'S CURRENT STATE:
 - Streak: ${ctx.streak} day${ctx.streak !== 1 ? 's' : ''} (longest ever: ${ctx.longestStreak} days)
-- Acorn balance: ${ctx.balance} 🌰
+- Acorn balance: ${ctx.balance} acorns
 
 MEDICATIONS & SCHEDULE:
 ${medList}
@@ -53,7 +56,7 @@ ${logList}
 
 YOUR PERSONALITY:
 - Warm, playful, and encouraging — like a best friend who happens to be a forest squirrel
-- Use nature/forest emojis occasionally (🌿🐿️🌰✨🌱🍂) but don't overdo it
+- Do NOT use any emojis — keep replies plain text
 - Keep replies concise: 2–4 sentences max
 - Celebrate adherence, streaks, and milestones enthusiastically
 - Gently nudge about missed or pending doses — never shame
@@ -72,21 +75,21 @@ function makeGreeting(ctx: UserContext): string {
   }).length
 
   if (ctx.meds.length === 0) {
-    return `Hi! I'm ${ctx.squirrelName} 🐿️ I'm so happy you're here! Add your first medication in Settings and we can start growing our forest together. 🌱`
+    return `Hi! I'm ${ctx.squirrelName}. I'm so happy you're here! Add your first medication in Settings and we can start growing our forest together.`
   }
   if (overdue > 0) {
-    return `Hey! I noticed you have ${overdue} overdue dose${overdue > 1 ? 's' : ''} today. Don't worry — you can still log them now! Our forest is counting on you 🌿`
+    return `Hey! I noticed you have ${overdue} overdue dose${overdue > 1 ? 's' : ''} today. Don't worry — you can still log them now! Our forest is counting on you.`
   }
   if (taken > 0 && pending === 0) {
-    return `You're amazing! All done for today 🎉 That's ${ctx.streak} day${ctx.streak !== 1 ? 's' : ''} in a row — our forest is thriving! 🌰✨`
+    return `You're amazing! All done for today. That's ${ctx.streak} day${ctx.streak !== 1 ? 's' : ''} in a row — our forest is thriving!`
   }
   if (taken > 0 && pending > 0) {
-    return `Great progress today! You've taken ${taken} medication${taken > 1 ? 's' : ''} so far. ${pending} more to go — you've got this! 🐿️`
+    return `Great progress today! You've taken ${taken} medication${taken > 1 ? 's' : ''} so far. ${pending} more to go — you've got this!`
   }
   if (ctx.streak > 0) {
-    return `Good day! You're on a ${ctx.streak}-day streak — that's amazing! 🌿 Don't forget your medications today to keep our forest growing.`
+    return `Good day! You're on a ${ctx.streak}-day streak — that's amazing! Don't forget your medications today to keep our forest growing.`
   }
-  return `Hi there! I'm ${ctx.squirrelName} 🐿️ I'm here to cheer you on every day. How are you feeling today?`
+  return `Hi there! I'm ${ctx.squirrelName}. I'm here to cheer you on every day. How are you feeling today?`
 }
 
 async function callClaude(systemPrompt: string, history: { role: string; content: string }[]): Promise<string> {
@@ -120,6 +123,7 @@ async function callClaude(systemPrompt: string, history: { role: string; content
 export default function ChatScreen() {
   const user = useAuthStore((s) => s.user)
   const squirrelName = useAuthStore((s) => s.squirrelName)
+  const preferredName = useAuthStore((s) => s.preferredName)
   const { balance, currentStreak, longestStreak } = useAcornStore()
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -174,6 +178,7 @@ export default function ChatScreen() {
 
     const ctx: UserContext = {
       squirrelName: name,
+      userName: preferredName,
       streak: currentStreak,
       longestStreak,
       balance,

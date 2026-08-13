@@ -42,7 +42,7 @@ export default function ShopScreen() {
     if (ok) {
       await supabase.from('forest_items').insert({ user_id: user.id, item_id: item.id })
       setOwnedItemIds((prev) => [...prev, item.id])
-      showToast(`${item.emoji} ${item.name} added to your forest!`)
+      showToast(`${item.emoji} ${item.name} added to your den!`)
     } else {
       showToast('Not enough acorns yet — keep logging!')
     }
@@ -99,7 +99,7 @@ export default function ShopScreen() {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         <Text style={{ fontSize: 14, color: '#554336', marginBottom: 16 }}>
-          Spend your acorns on cozy decorations for your forest.
+          Spend your acorns on cozy decorations for your den.
         </Text>
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>

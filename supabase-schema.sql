@@ -4,8 +4,26 @@ create table if not exists users (
   id uuid primary key references auth.users(id),
   email text,
   squirrel_name text not null default 'Acorn',
+  full_name text,
+  preferred_name text,
+  age int,
+  sex text,
+  birthday date,
+  country text,
+  acorn_goals text[],
+  acorn_goals_other text,
   created_at timestamptz default now()
 );
+
+-- If the users table already exists, add the demographic columns:
+alter table users add column if not exists full_name text;
+alter table users add column if not exists preferred_name text;
+alter table users add column if not exists age int;
+alter table users add column if not exists sex text;
+alter table users add column if not exists birthday date;
+alter table users add column if not exists country text;
+alter table users add column if not exists acorn_goals text[];
+alter table users add column if not exists acorn_goals_other text;
 
 create table if not exists medications (
   id uuid primary key default gen_random_uuid(),

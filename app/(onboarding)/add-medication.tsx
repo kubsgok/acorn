@@ -4,13 +4,17 @@ import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import Animated, { FadeInDown } from 'react-native-reanimated'
 import { useAuthStore } from '../../src/stores/authStore'
 import { supabase } from '../../src/lib/supabase'
 import { pickImage, extractMedInfo } from '../../src/lib/ocr'
+import { useT } from '../../src/lib/i18n'
+import { Eyebrow, IconTile, StepDots, PrimaryButton } from '../../src/components/onboardingUI'
 
 const COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#f43f5e', '#6366f1', '#fb923c']
 
 export default function AddMedication() {
+  const { t } = useT()
   const user = useAuthStore((s) => s.user)
   const squirrelName = useAuthStore((s) => s.squirrelName)
   const setOnboardingDone = useAuthStore((s) => s.setOnboardingDone)
@@ -50,7 +54,7 @@ export default function AddMedication() {
     if (!user) return
     await Promise.all([
       supabase.from('users').upsert({ id: user.id, email: user.email, squirrel_name: squirrelName }),
-      supabase.from('acorn_balance').upsert({ user_id: user.id, balance: 0, lifetime_earned: 0 }, { onConflict: 'user_id' }),
+      supabase.from('acorn_balance').upsert({ user_id: user.id, balance: 20, lifetime_earned: 20 }, { onConflict: 'user_id' }),
       supabase.from('streaks').upsert({ user_id: user.id, current_streak: 0, longest_streak: 0 }, { onConflict: 'user_id' }),
     ])
     router.push('/(onboarding)/notifications')
@@ -75,7 +79,7 @@ export default function AddMedication() {
       if (error) { Alert.alert('Error', error.message); return }
 
       await Promise.all([
-        supabase.from('acorn_balance').upsert({ user_id: user.id, balance: 0, lifetime_earned: 0 }, { onConflict: 'user_id' }),
+        supabase.from('acorn_balance').upsert({ user_id: user.id, balance: 20, lifetime_earned: 20 }, { onConflict: 'user_id' }),
         supabase.from('streaks').upsert({ user_id: user.id, current_streak: 0, longest_streak: 0 }, { onConflict: 'user_id' }),
       ])
 
@@ -96,20 +100,19 @@ export default function AddMedication() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={{
-          width: 72, height: 72, borderRadius: 24,
-          backgroundColor: '#fef3c7',
-          alignItems: 'center', justifyContent: 'center',
-          marginBottom: 24,
-        }}>
-          <MaterialCommunityIcons name="pill" size={34} color="#b15f00" />
-        </View>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.3 }}>
-          Add your first medication
-        </Text>
-        <Text style={{ fontSize: 15, color: '#554336', marginTop: 8, marginBottom: 32, lineHeight: 22 }}>
-          You can add more later in Settings.
-        </Text>
+        <StepDots step={2} total={5} style={{ marginBottom: 28 }} />
+        <Animated.View entering={FadeInDown.duration(600)}>
+          <IconTile><MaterialCommunityIcons name="pill" size={34} color="#b15f00" /></IconTile>
+          <View style={{ marginTop: 22 }}>
+            <Eyebrow label={t('ob.step', { n: 3, total: 5 })} />
+          </View>
+          <Text style={{ fontSize: 30, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.5 }}>
+            Add your first medication
+          </Text>
+          <Text style={{ fontSize: 15, color: '#554336', marginTop: 8, marginBottom: 32, lineHeight: 22 }}>
+            You can add more later in Settings.
+          </Text>
+        </Animated.View>
 
         {/* Scan button */}
         <TouchableOpacity
@@ -202,23 +205,12 @@ export default function AddMedication() {
           ))}
         </View>
 
-        <TouchableOpacity
+        <PrimaryButton
+          label={loading ? 'Saving…' : 'Continue'}
           onPress={handleContinue}
-          disabled={loading}
-          activeOpacity={0.85}
-          style={{
-            backgroundColor: '#b15f00', borderRadius: 20,
-            paddingVertical: 16, alignItems: 'center',
-            opacity: loading ? 0.7 : 1,
-            shadowColor: '#b15f00', shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-            marginBottom: 12,
-          }}
-        >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
-            {loading ? 'Saving...' : 'Continue'}
-          </Text>
-        </TouchableOpacity>
+          loading={loading}
+          style={{ marginBottom: 12 }}
+        />
 
         <TouchableOpacity onPress={handleSkip} style={{ padding: 12, alignItems: 'center', marginBottom: 8 }}>
           <Text style={{ color: '#a8a29e', fontSize: 14, fontWeight: '600' }}>Skip for now</Text>

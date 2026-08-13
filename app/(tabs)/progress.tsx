@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react'
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Image, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import Animated, { FadeIn, Easing, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated'
 import { useFocusEffect, router } from 'expo-router'
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
+import { CalendarView } from './calendar'
 
 interface DaySummary { date: string; rate: number; hasData: boolean }
 
@@ -107,6 +109,21 @@ export default function ProgressScreen() {
     : '#ba1a1a'
 
   const initials = squirrelName ? squirrelName.slice(0, 1).toUpperCase() : '?'
+  const [tab, setTab] = useState<'overview' | 'calendar'>('overview')
+
+  // Sliding segmented-control indicator
+  const [segW, setSegW] = useState(0)
+  const indicator = useSharedValue(0)
+  const indicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: indicator.value }] }))
+
+  function selectTab(next: 'overview' | 'calendar') {
+    if (next === tab) return
+    indicator.value = withTiming(next === 'overview' ? 0 : segW, {
+      duration: 300,
+      easing: Easing.bezier(0.32, 0.72, 0, 1),
+    })
+    setTab(next)
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff8f5' }} edges={['top']}>
@@ -131,20 +148,49 @@ export default function ProgressScreen() {
           </View>
           <Text style={{ fontSize: 22, fontWeight: '800', color: '#b15f00', letterSpacing: -0.5 }}>Acorn</Text>
         </View>
-        <TouchableOpacity style={{
-          width: 40, height: 40, borderRadius: 20,
-          alignItems: 'center', justifyContent: 'center',
-        }}
-          onPress={() => router.push('/(tabs)/calendar')}
-        >
-          <MaterialCommunityIcons name="calendar-today" size={22} color="#b15f00" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Segmented toggle: Overview | Calendar — with a sliding indicator */}
+        <View
+          onLayout={(e) => setSegW((e.nativeEvent.layout.width - 8) / 2)}
+          style={{ flexDirection: 'row', backgroundColor: '#f1ebe4', borderRadius: 14, padding: 4, marginBottom: 20 }}
+        >
+          {/* Sliding white pill */}
+          {segW > 0 && (
+            <Animated.View
+              style={[
+                {
+                  position: 'absolute', top: 4, left: 4, width: segW, bottom: 4, borderRadius: 10,
+                  backgroundColor: '#fff',
+                  shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2,
+                },
+                indicatorStyle,
+              ]}
+            />
+          )}
+          {(['overview', 'calendar'] as const).map((t) => (
+            <TouchableOpacity
+              key={t}
+              onPress={() => selectTab(t)}
+              activeOpacity={0.8}
+              style={{ flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center' }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '700', color: tab === t ? '#1f1b17' : '#a8907c' }}>
+                {t === 'overview' ? 'Overview' : 'Calendar'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Animated.View key={tab} entering={FadeIn.duration(240)}>
+        {tab === 'calendar' ? (
+          <CalendarView />
+        ) : (
+        <>
         {/* Headline */}
         <View style={{ marginBottom: 20 }}>
           <Text style={{ fontSize: 24, fontWeight: '700', color: '#1f1b17', letterSpacing: -0.3 }}>
@@ -164,8 +210,8 @@ export default function ProgressScreen() {
               {/* Balance */}
               <View style={{
                 flex: 1, backgroundColor: '#fff', borderRadius: 16,
-                borderWidth: 1, borderColor: '#e7e5e4',
                 padding: 16, alignItems: 'center', gap: 4,
+                shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
               }}>
                 <Text style={{ fontSize: 22 }}>🌰</Text>
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#78716c', letterSpacing: 0.3, textTransform: 'uppercase' }}>
@@ -177,8 +223,8 @@ export default function ProgressScreen() {
               {/* Streak */}
               <View style={{
                 flex: 1, backgroundColor: '#fff', borderRadius: 16,
-                borderWidth: 1, borderColor: '#e7e5e4',
                 padding: 16, alignItems: 'center', gap: 4,
+                shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
               }}>
                 <MaterialCommunityIcons name="fire" size={24} color="#f97316" />
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#78716c', letterSpacing: 0.3, textTransform: 'uppercase' }}>
@@ -190,8 +236,8 @@ export default function ProgressScreen() {
               {/* Adherence */}
               <View style={{
                 flex: 1, backgroundColor: '#fff', borderRadius: 16,
-                borderWidth: 1, borderColor: '#e7e5e4',
                 padding: 16, alignItems: 'center', gap: 4,
+                shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
               }}>
                 <MaterialCommunityIcons name="check-decagram" size={24} color="#006e2d" />
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#78716c', letterSpacing: 0.3, textTransform: 'uppercase' }}>
@@ -206,7 +252,7 @@ export default function ProgressScreen() {
             {/* Weekly adherence chart */}
             <View style={{
               backgroundColor: '#fff', borderRadius: 16,
-              borderWidth: 1, borderColor: '#e7e5e4',
+              shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
               padding: 16, marginBottom: 20,
             }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
@@ -288,7 +334,7 @@ export default function ProgressScreen() {
               {completedMilestones.map((m) => (
                 <View key={m.days} style={{
                   backgroundColor: '#fff', borderRadius: 16,
-                  borderWidth: 1, borderColor: '#e7e5e4',
+                  shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
                   borderLeftWidth: 4, borderLeftColor: '#006e2d',
                   padding: 16, flexDirection: 'row',
                   alignItems: 'center', justifyContent: 'space-between',
@@ -317,7 +363,7 @@ export default function ProgressScreen() {
               {nextMilestone && (
                 <View style={{
                   backgroundColor: '#fff', borderRadius: 16,
-                  borderWidth: 1, borderColor: '#e7e5e4',
+                  shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
                   borderLeftWidth: 4, borderLeftColor: '#f59e0b',
                   padding: 16, flexDirection: 'row',
                   alignItems: 'center', justifyContent: 'space-between',
@@ -362,7 +408,7 @@ export default function ProgressScreen() {
                   {futureMilestones.map((m) => (
                     <View key={m.days} style={{
                       width: 120, backgroundColor: '#fff',
-                      borderRadius: 16, borderWidth: 1, borderColor: '#e7e5e4',
+                      borderRadius: 16, shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
                       padding: 16, alignItems: 'center', gap: 8, opacity: 0.55,
                     }}>
                       <MaterialCommunityIcons name={m.icon} size={28} color="#a8a29e" />
@@ -391,6 +437,9 @@ export default function ProgressScreen() {
             </View>
           </>
         )}
+        </>
+        )}
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   )

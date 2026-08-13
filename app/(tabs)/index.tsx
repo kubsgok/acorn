@@ -1,12 +1,24 @@
-import { useCallback, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator, Dimensions } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import Animated, {
+  Easing,
+  runOnJS,
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
 import { useFocusEffect, router } from 'expo-router'
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
 import { markMissedDoses, recomputeStreak } from '../../src/lib/streaks'
+import { syncMedicationReminders, cancelDoseNotifications } from '../../src/lib/notifications'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
+import { useT } from '../../src/lib/i18n'
 
 interface MedLog {
   id: string
@@ -56,15 +68,117 @@ function getMoodMessage(squirrelName: string, allDone: boolean, overdueLogs: Med
   return 'Take your medication to start a streak.'
 }
 
+interface CoinDesc {
+  id: string
+  from: { x: number; y: number }
+  to: { x: number; y: number }
+  delay: number
+  value: number
+}
+
+// A single acorn that arcs from a burst point up to the balance chip, then
+// reports its value so the counter can tick up (Clash-Royale-style coin fly).
+function Coin({ desc, onLand }: { desc: CoinDesc; onLand: (value: number) => void }) {
+  const p = useSharedValue(0)
+  useEffect(() => {
+    p.value = withDelay(
+      desc.delay,
+      withTiming(1, { duration: 620, easing: Easing.bezier(0.36, 0, 0.2, 1) }, (finished) => {
+        if (finished) runOnJS(onLand)(desc.value)
+      })
+    )
+  }, [])
+  const style = useAnimatedStyle(() => {
+    const tt = p.value
+    const x = desc.from.x + (desc.to.x - desc.from.x) * tt
+    // parabolic lift so coins arc upward before landing on the counter
+    const y = desc.from.y + (desc.to.y - desc.from.y) * tt - Math.sin(tt * Math.PI) * 70
+    const scale = 1 - 0.45 * tt
+    const opacity = tt > 0.9 ? 1 - (tt - 0.9) / 0.1 : 1
+    return { transform: [{ translateX: x }, { translateY: y }, { scale }], opacity }
+  })
+  return (
+    <Animated.View style={[{ position: 'absolute', left: -14, top: -14 }, style]} pointerEvents="none">
+      <Text style={{ fontSize: 26 }}>🌰</Text>
+    </Animated.View>
+  )
+}
+
 export default function HomeScreen() {
+  const { t } = useT()
   const user = useAuthStore((s) => s.user)
   const squirrelName = useAuthStore((s) => s.squirrelName)
+  const preferredName = useAuthStore((s) => s.preferredName)
   const { balance, currentStreak, load: loadAcorns, addAcorns } = useAcornStore()
   const [logs, setLogs] = useState<MedLog[]>([])
   const [loading, setLoading] = useState(true)
   const [logging, setLogging] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState<MedLog | null>(null)
-  const [lastEarned, setLastEarned] = useState<number | null>(null)
+  const [showConfirmAll, setShowConfirmAll] = useState(false)
+  const [loggingAll, setLoggingAll] = useState(false)
+
+  // Acorn coin-fly animation → balance chip
+  const rootRef = useRef<View>(null)
+  const acornChipRef = useRef<View>(null)
+  const [displayBalance, setDisplayBalance] = useState(balance)
+  const [coins, setCoins] = useState<CoinDesc[]>([])
+  const animatingRef = useRef(false)
+  const chipScale = useSharedValue(1)
+  const chipStyle = useAnimatedStyle(() => ({ transform: [{ scale: chipScale.value }] }))
+
+  // Keep the shown balance in sync with the store whenever no fly is running.
+  useEffect(() => {
+    if (!animatingRef.current) setDisplayBalance(balance)
+  }, [balance])
+
+  function popChip() {
+    chipScale.value = withSequence(
+      withTiming(1.28, { duration: 110, easing: Easing.out(Easing.quad) }),
+      withSpring(1, { damping: 8, stiffness: 260 })
+    )
+  }
+
+  function handleLand(value: number, isLast: boolean) {
+    setDisplayBalance((b) => b + value)
+    popChip()
+    if (isLast) {
+      animatingRef.current = false
+      setTimeout(() => {
+        setCoins([])
+        setDisplayBalance(useAcornStore.getState().balance)
+      }, 80)
+    }
+  }
+
+  // Emit `amount` acorns that arc up to the balance chip, ticking it up.
+  function flyAcorns(amount: number) {
+    const root = rootRef.current
+    const chip = acornChipRef.current
+    if (amount <= 0 || !root || !chip) {
+      // Fallback: no animation possible — just show the real balance.
+      animatingRef.current = false
+      setDisplayBalance(useAcornStore.getState().balance)
+      return
+    }
+    chip.measureInWindow((cx, cy, cw, ch) => {
+      root.measureInWindow((rx, ry) => {
+        const { width: W, height: H } = Dimensions.get('window')
+        const target = { x: cx - rx + cw / 2, y: cy - ry + ch / 2 }
+        const source = { x: W / 2 - rx, y: H * 0.5 - ry }
+        const n = Math.min(amount, 12)
+        const base = Math.floor(amount / n)
+        const rem = amount - base * n
+        const descs: CoinDesc[] = Array.from({ length: n }).map((_, i) => ({
+          id: `${Date.now()}-${i}`,
+          from: { x: source.x + (Math.random() - 0.5) * 100, y: source.y + (Math.random() - 0.5) * 50 },
+          to: target,
+          delay: i * 55,
+          value: base + (i < rem ? 1 : 0),
+        }))
+        setCoins(descs)
+      })
+    })
+  }
 
   const load = useCallback(async () => {
     if (!user) return
@@ -129,6 +243,9 @@ export default function HomeScreen() {
     await loadAcorns(user.id)
     await recomputeStreak(user.id)
     setLoading(false)
+
+    // Refresh local dose reminders + 2-hour follow-ups (fire-and-forget)
+    syncMedicationReminders(user.id)
   }, [user, loadAcorns])
 
   useFocusEffect(useCallback(() => { load() }, [load]))
@@ -147,17 +264,57 @@ export default function HomeScreen() {
       acorns_earned: acorns,
     }).eq('id', log.id)
 
+    // Freeze the shown balance, then fly the earned acorns up to the chip.
+    animatingRef.current = true
     await addAcorns(user.id, acorns)
-    setLastEarned(acorns)
-    setTimeout(() => setLastEarned(null), 2000)
+    flyAcorns(acorns)
 
     setLogs((prev) => prev.map((l) => l.id === log.id ? { ...l, status, logged_at: now.toISOString(), acorns_earned: acorns } : l))
     setLogging(null)
     setShowConfirm(null)
 
+    // Dose logged → cancel its pending 2-hour follow-up reminder
+    cancelDoseNotifications(log.schedule_id, log.scheduled_at)
+
     // Last dose of the day just logged — the streak (and the forest) grows now
     const dayComplete = logs.every((l) => l.id === log.id || l.status !== 'pending')
     if (dayComplete) await recomputeStreak(user.id)
+  }
+
+  // Log every still-pending dose in one go.
+  async function logAll() {
+    if (!user) return
+    setLoggingAll(true)
+    const now = new Date()
+    const pending = logs.filter((l) => l.status === 'pending')
+    const updates = pending.map((l) => {
+      const status = calcStatus(new Date(l.scheduled_at), now)
+      return { id: l.id, status, acorns: calcAcorns(status) }
+    })
+    const total = updates.reduce((sum, u) => sum + u.acorns, 0)
+
+    await Promise.all(updates.map((u) =>
+      supabase.from('medication_logs').update({
+        logged_at: now.toISOString(), status: u.status, acorns_earned: u.acorns,
+      }).eq('id', u.id)
+    ))
+
+    animatingRef.current = true
+    await addAcorns(user.id, total)
+    flyAcorns(total)
+
+    setLogs((prev) => prev.map((l) => {
+      const u = updates.find((x) => x.id === l.id)
+      return u ? { ...l, status: u.status, logged_at: now.toISOString(), acorns_earned: u.acorns } : l
+    }))
+    setLoggingAll(false)
+    setShowConfirmAll(false)
+
+    // Cancel pending follow-ups for every dose just logged
+    pending.forEach((l) => cancelDoseNotifications(l.schedule_id, l.scheduled_at))
+
+    // The day is now complete — grow the streak (and the forest)
+    await recomputeStreak(user.id)
   }
 
   const overdueLogs = logs.filter((l) => isOverdue(l))
@@ -166,6 +323,9 @@ export default function HomeScreen() {
   const allDone = logs.length > 0 && logs.every((l) => l.status !== 'pending')
 
   const today = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+  const hour = new Date().getHours()
+  const timeGreeting = hour < 12 ? t('today.morning') : hour < 18 ? t('today.afternoon') : t('today.evening')
+  const greeting = preferredName ? `${timeGreeting}, ${preferredName}` : 'Acorn'
 
   function renderLog(log: MedLog, overdue = false) {
     const isPending = log.status === 'pending'
@@ -178,10 +338,9 @@ export default function HomeScreen() {
           borderRadius: 16,
           padding: 16,
           marginBottom: 10,
-          borderWidth: 1,
-          borderColor: '#e7e5e4',
           borderLeftWidth: 4,
           borderLeftColor: log.medication.color,
+          shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.07, shadowRadius: 12, elevation: 3,
         }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flex: 1 }}>
@@ -219,10 +378,11 @@ export default function HomeScreen() {
         borderRadius: 16,
         padding: 16,
         marginBottom: 10,
-        borderWidth: 1,
-        borderColor: overdue ? '#fca5a5' : '#e7e5e4',
+        borderWidth: overdue ? 1 : 0,
+        borderColor: overdue ? '#fca5a5' : 'transparent',
         borderLeftWidth: 4,
         borderLeftColor: overdue ? '#ba1a1a' : log.medication.color,
+        shadowColor: overdue ? '#ba1a1a' : '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: overdue ? 0.1 : 0.07, shadowRadius: 12, elevation: 3,
       }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <View style={{ flex: 1 }}>
@@ -269,43 +429,34 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff8f5' }} edges={['top']}>
-      {/* Acorn earned toast */}
-      {lastEarned && (
-        <View style={{
-          position: 'absolute', top: 60, alignSelf: 'center', zIndex: 99,
-          backgroundColor: '#b15f00', borderRadius: 24,
-          paddingHorizontal: 20, paddingVertical: 10,
-          flexDirection: 'row', alignItems: 'center', gap: 6,
-        }}>
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>+{lastEarned} 🌰</Text>
-        </View>
-      )}
-
+    <SafeAreaView ref={rootRef} style={{ flex: 1, backgroundColor: '#fff8f5' }} edges={['top']}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 26, fontWeight: '800', color: '#1c1917', letterSpacing: -0.5 }}>
-                Acorn
+                {greeting}
               </Text>
               <Text style={{ fontSize: 13, color: '#a8a29e', marginTop: 2 }}>{today}</Text>
             </View>
 
             {/* Pills */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexShrink: 0 }}>
               {/* Acorn balance */}
-              <View style={{
-                flexDirection: 'row', alignItems: 'center', gap: 5,
-                backgroundColor: '#fef3c7', borderRadius: 20,
-                paddingHorizontal: 12, paddingVertical: 6,
-              }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#8d4b00' }}>🌰 {balance}</Text>
-              </View>
+              <Animated.View
+                ref={acornChipRef}
+                style={[{
+                  flexDirection: 'row', alignItems: 'center', gap: 5,
+                  backgroundColor: '#fef3c7', borderRadius: 20,
+                  paddingHorizontal: 12, paddingVertical: 6,
+                }, chipStyle]}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#8d4b00' }}>🌰 {displayBalance}</Text>
+              </Animated.View>
 
               {/* Streak */}
               <View style={{
@@ -324,7 +475,7 @@ export default function HomeScreen() {
         <View style={{ marginHorizontal: 20, marginBottom: 20 }}>
           <TouchableOpacity
             onPress={() => router.push('/chat')}
-            activeOpacity={0.85}
+            activeOpacity={0.9}
             style={{
               backgroundColor: '#fcf2eb',
               borderRadius: 20,
@@ -332,6 +483,7 @@ export default function HomeScreen() {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 14,
+              shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 4,
             }}>
             <View style={{
               width: 56, height: 56, borderRadius: 28,
@@ -350,7 +502,9 @@ export default function HomeScreen() {
                 {getMoodMessage(squirrelName ?? 'Nutmeg', allDone, overdueLogs, currentStreak)}
               </Text>
             </View>
-            <MaterialCommunityIcons name="message-outline" size={20} color="#b15f00" />
+            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#fdf1e6', alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name="message-outline" size={18} color="#b15f00" />
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -377,6 +531,25 @@ export default function HomeScreen() {
             </View>
           ) : (
             <>
+              {/* Take all — logs every pending dose at once */}
+              {(overdueLogs.length + upcomingLogs.length) > 1 && (
+                <TouchableOpacity
+                  onPress={() => setShowConfirmAll(true)}
+                  activeOpacity={0.9}
+                  style={{
+                    backgroundColor: '#b15f00', borderRadius: 16, paddingVertical: 14,
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    marginBottom: 20,
+                    shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 5,
+                  }}
+                >
+                  <MaterialCommunityIcons name="check-all" size={20} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>
+                    Take all {overdueLogs.length + upcomingLogs.length} medications
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {/* Overdue */}
               {overdueLogs.length > 0 && (
                 <View style={{ marginBottom: 20 }}>
@@ -483,6 +656,61 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Take-all confirm modal */}
+      <Modal visible={showConfirmAll} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
+          <View style={{
+            backgroundColor: '#fff',
+            borderTopLeftRadius: 28, borderTopRightRadius: 28,
+            padding: 28, paddingBottom: 40,
+          }}>
+            <View style={{
+              width: 64, height: 64, borderRadius: 32,
+              backgroundColor: '#fef3c7',
+              alignItems: 'center', justifyContent: 'center',
+              alignSelf: 'center', marginBottom: 16,
+            }}>
+              <MaterialCommunityIcons name="check-all" size={30} color="#b15f00" />
+            </View>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: '#1c1917', textAlign: 'center' }}>
+              Take all {overdueLogs.length + upcomingLogs.length} medications?
+            </Text>
+            <Text style={{ fontSize: 14, color: '#78716c', textAlign: 'center', marginTop: 8, marginBottom: 28, lineHeight: 20 }}>
+              This will log every pending dose for today and earn you acorns.
+            </Text>
+            <TouchableOpacity
+              onPress={logAll}
+              disabled={loggingAll}
+              style={{
+                backgroundColor: '#b15f00', borderRadius: 14,
+                padding: 16, alignItems: 'center', marginBottom: 10,
+              }}
+            >
+              {loggingAll
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Yes, log them all</Text>
+              }
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowConfirmAll(false)}
+              disabled={loggingAll}
+              style={{ padding: 12, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#a8a29e', fontWeight: '600' }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Flying acorns overlay */}
+      {coins.length > 0 && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 200 }}>
+          {coins.map((c, i) => (
+            <Coin key={c.id} desc={c} onLand={(v) => handleLand(v, i === coins.length - 1)} />
+          ))}
+        </View>
+      )}
     </SafeAreaView>
   )
 }

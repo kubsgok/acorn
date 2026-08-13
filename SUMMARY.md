@@ -18,7 +18,9 @@ A React Native medication tracker with gamification. Users log their medications
 | Backend | Supabase (auth + PostgreSQL + RLS) |
 | AI Chat | Anthropic Claude Haiku |
 | AI OCR | Anthropic Claude Haiku (vision) |
-| Local Storage | AsyncStorage (avatar, onboarding flags) |
+| Local Storage | AsyncStorage (avatar, onboarding flags, language) |
+| i18n | Custom lightweight store (`src/lib/i18n.ts`) — EN / ES / FR / 中文 |
+| Animation / gesture | react-native-reanimated, react-native-gesture-handler, expo-haptics |
 | Notifications | expo-notifications |
 | Camera | expo-camera + expo-image-picker |
 
@@ -33,17 +35,23 @@ A React Native medication tracker with gamification. Users log their medications
 │   └── register
 ├── (onboarding)/         ← sequential, no gestures
 │   ├── welcome
+│   ├── about-you         Demographics (name, preferred name, age, sex, birthday, country, goals)
 │   ├── name-squirrel
 │   ├── add-medication
 │   ├── set-schedule
-│   └── notifications
-├── (tabs)/               ← main app
+│   ├── notifications
+│   ├── forest-intro      Tree Forest explainer
+│   └── den-intro         Den explainer
+├── (tabs)/               ← main app (lands on Forest)
+│   ├── forest            Tree Forest (grove) — main tree + planted species
+│   ├── den               Furnish-your-room (formerly "forest")
 │   ├── index             Today (home)
-│   ├── progress          Stats & milestones
-│   ├── forest            Virtual forest
-│   ├── calendar          Adherence history
-│   └── settings          Profile & medications
-├── medication/new        ← modal, gesture enabled
+│   ├── progress          Stats & milestones + Calendar (segmented toggle)
+│   ├── calendar          Adherence history (hidden route, embedded in Progress)
+│   └── settings          Profile, demographics, language, medications
+├── medication/new        ← add OR edit (with ?id=), modal, gesture enabled
+├── shop                  ← den decoration shop, modal
+├── tree-shop             ← tree shop, modal
 └── chat                  ← modal, gesture enabled
 ```
 
@@ -79,26 +87,34 @@ A React Native medication tracker with gamification. Users log their medications
 - Progress bar toward next milestone; future milestones shown at 50% opacity
 - Avatar display, link to calendar
 
-### Forest
-- Emoji forest that grows with streak: 🌱 → 🌿 → 🌲 → 🌳 → 🏡 + 🐿️
-- Acorn balance chip
-- Scrollable unlock list with streak requirements
+### Forest (Tree Forest — landing tab)
+- Illustrated outdoor grove with a **main tree** that grows through 6 stages as the streak climbs (1/3/7/14/30) and wilts back when it breaks
+- Buy **tree species** (Pine/Maple/Cherry Blossom) → they land in a "Your Trees" inventory as saplings → tap or drag to plant on the grass → grow one stage per compliant day
+- Drag placed trees to reposition; tap to put away; depth-sorted with contact shadows
+- Milestone popups at 3/7/14/30 days award bonus acorns; first-open intro + (i) info button
+
+### Den (furnish-your-room — formerly "Forest")
+- One illustrated room + drag-and-drop decorations bought in the Shop; squirrel companion; grows cozier with the streak
+- First-open intro + (i) info button
 
 ### Calendar
 - Monthly grid color-coded by adherence (green / amber / red)
 - Month navigation (can't go to future)
 - Today highlighted with orange border
-- Tap a day → detail card (X of Y taken)
+- Tap a day → detail card with **per-medication breakdown** (each dose's name, time, On-time/Late/Missed/Pending)
 - Monthly summary: adherence %, perfect days, days tracked
+- Now embedded in the **Progress** tab via a segmented Overview/Calendar toggle
 
 ### Settings
 - Tappable avatar (opens image picker, persists via AsyncStorage)
 - Edit squirrel name
-- Medication list with TAKEN / PENDING badges and delete buttons
+- **Language** section — EN / ES / FR / 中文 flag chips
+- Medication list with TAKEN / PENDING badges, **edit (pencil)** and delete buttons
 - Sign out
 
-### Add Medication (`medication/new`)
+### Add / Edit Medication (`medication/new`, optional `?id=`)
 - Same form as onboarding: OCR scan, name, dose, notes, color picker, day picker, time slots
+- With an `id` it edits an existing med (prefilled, schedules reconciled in place)
 
 ### Chat
 - Squirrel persona via Claude Haiku
@@ -117,10 +133,14 @@ A React Native medication tracker with gamification. Users log their medications
 |---|---|---|
 | `session` | `Session \| null` | Supabase session |
 | `squirrelName` | `string` | AI companion name |
+| `fullName` | `string \| null` | User's full name (demographics) |
+| `preferredName` | `string \| null` | What to call the user (greeting + chat) |
 | `avatarUri` | `string \| null` | Profile photo (AsyncStorage) |
 | `onboardingDone` | `boolean` | Onboarding completion flag |
 
-Methods: `setSession`, `setSquirrelName`, `setAvatarUri`, `loadAvatar`, `signOut`
+Methods: `setSession`, `setSquirrelName`, `setPreferredName`, `loadProfile`, `setAvatarUri`, `loadAvatar`, `signOut`
+
+Language lives in a separate store (`useLangStore` in `src/lib/i18n.ts`): `lang`, `setLang`, `loadLang`; `useT()` returns `t(key, vars?)`.
 
 ### `acornStore`
 | Field | Type | Purpose |
@@ -140,7 +160,7 @@ Methods: `load(userId)`, `addAcorns(userId, amount)`, `setStreak`, `reset`
 
 | Table | Purpose |
 |---|---|
-| `users` | Profile (email, squirrel name) |
+| `users` | Profile (email, squirrel name; demographics: full_name, preferred_name, age, sex, birthday, country, acorn_goals[], acorn_goals_other) |
 | `medications` | Name, dose, notes, color, days_of_week |
 | `medication_schedules` | time_of_day per medication |
 | `medication_logs` | Take/skip events (status, acorns_earned, logged_at) |
@@ -153,7 +173,7 @@ All tables have Row-Level Security — users can only access their own rows via 
 
 **Log statuses:** `pending` → `on_time` (logged within 30 min) or `late` (logged after 30 min) or `missed`
 
-**Acorn rewards:** 10 for on-time, 5 for late, 0 for missed
+**Acorn rewards:** 10 for on-time, 5 for late, 0 for missed. New users **start with 20 acorns** + **10** finish-setup bonus = **30**. Streak milestones (3/7/14/30d) award 15/25/40/60 bonus acorns (once ever).
 
 ---
 
@@ -188,29 +208,27 @@ All tables have Row-Level Security — users can only access their own rows via 
 ## What's Done vs To Do
 
 ### Done
-- Full auth flow (login, register)
-- Full onboarding flow (5 screens)
-- Today screen with dose logging and acorn rewards
-- Progress screen with milestones
-- Calendar with monthly adherence view
-- Forest with streak-based emoji unlocks
-- Settings with avatar, squirrel name, medication management
-- AI chat with full context injection
+- Full auth flow (login, register) + small language toggle on login
+- Full onboarding flow (welcome, about-you demographics, name squirrel, add med, schedule, notifications, forest & den intros)
+- Today screen with dose logging, acorn rewards, "take all" button, personalized greeting
+- Progress screen with milestones + embedded Calendar (per-day medication breakdown)
+- **Tree Forest** (grove) — streak-driven main tree + buyable/plantable species, tree shop, inventory, milestone popups
+- **Den** — furnish-your-room with drag-and-drop decorations + shop
+- Settings with avatar, squirrel name, language toggle, medication add/edit/delete
+- AI chat with full context injection + user's preferred name
 - OCR medication label scanning
-- Acorn + streak state with DB sync
-- Zustand stores with bug-free new-user initialization
+- Streak engine (missed-dose marking + recompute); acorn + streak state with DB sync
+- i18n (EN/ES/FR/中文) across core screens
+- Zustand stores with bug-free new-user initialization (start with 20 acorns)
 
 ### To Do (High Priority)
-- **Edit medication** — `/medication/[id]` screen to update existing meds
 - **Notification scheduling** — permission is requested but no notifications actually fire yet
-- **Missed dose logic** — doses don't auto-mark as missed after the scheduled time passes
 
 ### To Do (Later)
-- Illustrated forest visual (currently emoji-only)
-- Acorn shop (DB tables already designed)
 - Caregiver view (schema already designed)
 - Streak repair / grace mechanic
 - Empty states (no history yet)
 - Error boundaries for Supabase failures
+- Extend i18n to remaining screens (med form, chat, progress charts) + translate chat replies
 - App icon + splash screen (currently Expo defaults)
 - iPad layout

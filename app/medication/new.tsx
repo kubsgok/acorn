@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, Alert, ScrollView, Platform, ActivityIndicator } from 'react-native'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
 import { useAuthStore } from '../../src/stores/authStore'
 import { pickImage, extractMedInfo } from '../../src/lib/ocr'
+import { syncMedicationReminders } from '../../src/lib/notifications'
 
 const COLORS = [
   '#f59e0b', // amber-500
@@ -41,19 +42,60 @@ function defaultTime(hour = 8) {
   return d
 }
 
+// Parse a "HH:MM:SS" DB time into a Date on today (for the time picker).
+function timeStringToDate(t: string) {
+  const [h, m] = t.split(':').map(Number)
+  const d = new Date()
+  d.setHours(h, m, 0, 0)
+  return d
+}
+
 export default function NewMedication() {
   const user = useAuthStore((s) => s.user)
+  const { id } = useLocalSearchParams<{ id?: string }>()
+  const isEdit = !!id
   const [name, setName] = useState('')
   const [dose, setDose] = useState('')
   const [notes, setNotes] = useState('')
   const [color, setColor] = useState(COLORS[0])
   const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [times, setTimes] = useState<Date[]>([])
+  const [scheduleIds, setScheduleIds] = useState<string[]>([]) // existing rows (edit), aligned to `times` by index
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
+  const [loadingMed, setLoadingMed] = useState(isEdit)
   const [scanning, setScanning] = useState(false)
 
   const isAllDays = selectedDays.length === 7
+
+  // Edit mode: load the medication + its schedules and prefill the form.
+  useEffect(() => {
+    if (!id || !user) return
+    ;(async () => {
+      const { data } = await supabase
+        .from('medications')
+        .select('*, schedules:medication_schedules(*)')
+        .eq('id', id)
+        .single()
+      if (data) {
+        setName(data.name)
+        setDose(data.dose ?? '')
+        setNotes(data.notes ?? '')
+        setColor(data.color ?? COLORS[0])
+        try {
+          setSelectedDays(JSON.parse(data.days_of_week ?? '[0,1,2,3,4,5,6]'))
+        } catch {
+          setSelectedDays([0, 1, 2, 3, 4, 5, 6])
+        }
+        const scheds = ((data.schedules ?? []) as { id: string; time_of_day: string }[])
+          .slice()
+          .sort((a, b) => a.time_of_day.localeCompare(b.time_of_day))
+        setScheduleIds(scheds.map((s) => s.id))
+        setTimes(scheds.map((s) => timeStringToDate(s.time_of_day)))
+      }
+      setLoadingMed(false)
+    })()
+  }, [id, user])
 
   function toggleDay(day: number) {
     if (selectedDays.includes(day)) {
@@ -96,16 +138,27 @@ export default function NewMedication() {
     if (!user) return
     setLoading(true)
 
+    const fields = {
+      name: name.trim(),
+      dose: dose.trim() || null,
+      notes: notes.trim() || null,
+      color,
+      days_of_week: JSON.stringify(selectedDays),
+    }
+
+    if (isEdit && id) {
+      const { error } = await supabase.from('medications').update(fields).eq('id', id)
+      if (error) { Alert.alert('Error', error.message); setLoading(false); return }
+      await reconcileSchedules(id)
+      await syncMedicationReminders(user.id)
+      setLoading(false)
+      router.back()
+      return
+    }
+
     const { data: med, error } = await supabase
       .from('medications')
-      .insert({
-        user_id: user.id,
-        name: name.trim(),
-        dose: dose.trim() || null,
-        notes: notes.trim() || null,
-        color,
-        days_of_week: JSON.stringify(selectedDays),
-      })
+      .insert({ user_id: user.id, ...fields })
       .select().single()
 
     if (error) { Alert.alert('Error', error.message); setLoading(false); return }
@@ -115,8 +168,33 @@ export default function NewMedication() {
       await supabase.from('medication_schedules').insert(rows)
     }
 
+    await syncMedicationReminders(user.id)
     setLoading(false)
     router.back()
+  }
+
+  // Reconcile the medication's schedule rows to match `times`, by position:
+  // update kept rows in place (preserves today's log links), insert added
+  // times, and remove surplus rows. Before deleting a schedule, null it out
+  // of any logs so the FK doesn't block and dose history is preserved.
+  async function reconcileSchedules(medId: string) {
+    const ops: PromiseLike<unknown>[] = []
+    for (let i = 0; i < times.length; i++) {
+      const tod = toTimeString(times[i])
+      if (i < scheduleIds.length) {
+        ops.push(supabase.from('medication_schedules').update({ time_of_day: tod }).eq('id', scheduleIds[i]))
+      } else {
+        ops.push(supabase.from('medication_schedules').insert({ medication_id: medId, time_of_day: tod }))
+      }
+    }
+    for (let i = times.length; i < scheduleIds.length; i++) {
+      const sid = scheduleIds[i]
+      ops.push(
+        supabase.from('medication_logs').update({ schedule_id: null }).eq('schedule_id', sid)
+          .then(() => supabase.from('medication_schedules').delete().eq('id', sid))
+      )
+    }
+    await Promise.all(ops)
   }
 
   const canSave = name.trim().length > 0 && selectedDays.length > 0 && !loading
@@ -134,7 +212,7 @@ export default function NewMedication() {
           <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="#78716c" />
           </TouchableOpacity>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: '#b15f00' }}>Add Medication</Text>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#b15f00' }}>{isEdit ? 'Edit Medication' : 'Add Medication'}</Text>
         </View>
         <MaterialCommunityIcons name="help-circle-outline" size={22} color="#78716c" />
       </View>
@@ -367,7 +445,7 @@ export default function NewMedication() {
           }}
         >
           <Text style={{ color: '#fff', fontSize: 17, fontWeight: '700' }}>
-            {loading ? 'Saving...' : 'Save Medication'}
+            {loading ? 'Saving...' : isEdit ? 'Save Changes' : 'Save Medication'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
