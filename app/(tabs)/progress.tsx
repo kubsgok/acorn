@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { View, Text, ScrollView, ActivityIndicator, TouchableOpacity, Image, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import Animated, { FadeIn, Easing, useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated'
 import { useFocusEffect, router } from 'expo-router'
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
@@ -110,6 +111,20 @@ export default function ProgressScreen() {
   const initials = squirrelName ? squirrelName.slice(0, 1).toUpperCase() : '?'
   const [tab, setTab] = useState<'overview' | 'calendar'>('overview')
 
+  // Sliding segmented-control indicator
+  const [segW, setSegW] = useState(0)
+  const indicator = useSharedValue(0)
+  const indicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: indicator.value }] }))
+
+  function selectTab(next: 'overview' | 'calendar') {
+    if (next === tab) return
+    indicator.value = withTiming(next === 'overview' ? 0 : segW, {
+      duration: 300,
+      easing: Easing.bezier(0.32, 0.72, 0, 1),
+    })
+    setTab(next)
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#fff8f5' }} edges={['top']}>
       {/* Header */}
@@ -139,17 +154,30 @@ export default function ProgressScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Segmented toggle: Overview | Calendar */}
-        <View style={{ flexDirection: 'row', backgroundColor: '#f1ebe4', borderRadius: 14, padding: 4, marginBottom: 20 }}>
+        {/* Segmented toggle: Overview | Calendar — with a sliding indicator */}
+        <View
+          onLayout={(e) => setSegW((e.nativeEvent.layout.width - 8) / 2)}
+          style={{ flexDirection: 'row', backgroundColor: '#f1ebe4', borderRadius: 14, padding: 4, marginBottom: 20 }}
+        >
+          {/* Sliding white pill */}
+          {segW > 0 && (
+            <Animated.View
+              style={[
+                {
+                  position: 'absolute', top: 4, left: 4, width: segW, bottom: 4, borderRadius: 10,
+                  backgroundColor: '#fff',
+                  shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2,
+                },
+                indicatorStyle,
+              ]}
+            />
+          )}
           {(['overview', 'calendar'] as const).map((t) => (
             <TouchableOpacity
               key={t}
-              onPress={() => setTab(t)}
-              activeOpacity={0.9}
-              style={[
-                { flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center', backgroundColor: tab === t ? '#fff' : 'transparent' },
-                tab === t && { shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
-              ]}
+              onPress={() => selectTab(t)}
+              activeOpacity={0.8}
+              style={{ flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center' }}
             >
               <Text style={{ fontSize: 13, fontWeight: '700', color: tab === t ? '#1f1b17' : '#a8907c' }}>
                 {t === 'overview' ? 'Overview' : 'Calendar'}
@@ -158,6 +186,7 @@ export default function ProgressScreen() {
           ))}
         </View>
 
+        <Animated.View key={tab} entering={FadeIn.duration(240)}>
         {tab === 'calendar' ? (
           <CalendarView />
         ) : (
@@ -410,6 +439,7 @@ export default function ProgressScreen() {
         )}
         </>
         )}
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   )

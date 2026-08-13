@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics'
 import Svg, { Circle } from 'react-native-svg'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
+  SlideInDown,
   runOnJS,
   SharedValue,
   useSharedValue,
@@ -592,18 +593,20 @@ export default function ForestScreen() {
       )}
 
       {/* Info modal */}
-      <Modal visible={introOpen} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 40 }}>
-            <DenIntroContent />
-            <TouchableOpacity
-              onPress={() => setIntroOpen(false)}
-              style={{ backgroundColor: '#b15f00', borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 24 }}
-            >
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('common.gotIt')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+      <Modal visible={introOpen} transparent animationType="fade" onRequestClose={() => setIntroOpen(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }} onPress={() => setIntroOpen(false)}>
+          <Animated.View entering={SlideInDown.springify().damping(18).mass(0.7)}>
+            <Pressable style={{ backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 40 }}>
+              <DenIntroContent />
+              <TouchableOpacity
+                onPress={() => setIntroOpen(false)}
+                style={{ backgroundColor: '#b15f00', borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 24 }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('common.gotIt')}</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   )

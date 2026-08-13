@@ -5,6 +5,9 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { supabase } from '../src/lib/supabase'
 import { useAuthStore } from '../src/stores/authStore'
 import { useLangStore } from '../src/lib/i18n'
+import { configureNotifications } from '../src/lib/notifications'
+
+configureNotifications()
 
 export default function RootLayout() {
   const setSession = useAuthStore((s) => s.setSession)

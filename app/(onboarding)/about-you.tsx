@@ -4,9 +4,11 @@ import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
+import Animated, { FadeInDown } from 'react-native-reanimated'
 import { useAuthStore } from '../../src/stores/authStore'
 import { supabase } from '../../src/lib/supabase'
 import { useT } from '../../src/lib/i18n'
+import { Eyebrow, IconTile, StepDots, PrimaryButton } from '../../src/components/onboardingUI'
 
 // `value` is the canonical English stored in the DB; `key` is the display label.
 const SEX_OPTIONS = [
@@ -113,15 +115,19 @@ export default function AboutYou() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={{ width: 72, height: 72, borderRadius: 24, backgroundColor: '#fef3c7', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
-          <MaterialCommunityIcons name="account-heart-outline" size={34} color="#b15f00" />
-        </View>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.3 }}>
-          {t('about.title')}
-        </Text>
-        <Text style={{ fontSize: 15, color: '#554336', marginTop: 8, marginBottom: 32, lineHeight: 22 }}>
-          {t('about.subtitle')}
-        </Text>
+        <StepDots step={0} total={5} style={{ marginBottom: 28 }} />
+        <Animated.View entering={FadeInDown.duration(600)}>
+          <IconTile><MaterialCommunityIcons name="account-heart-outline" size={34} color="#b15f00" /></IconTile>
+          <View style={{ marginTop: 22 }}>
+            <Eyebrow label={t('ob.step', { n: 1, total: 5 })} />
+          </View>
+          <Text style={{ fontSize: 30, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.5 }}>
+            {t('about.title')}
+          </Text>
+          <Text style={{ fontSize: 15, color: '#554336', marginTop: 8, marginBottom: 32, lineHeight: 22 }}>
+            {t('about.subtitle')}
+          </Text>
+        </Animated.View>
 
         {/* Full name */}
         <Text style={LABEL}>{t('about.fullName')}</Text>
@@ -246,22 +252,11 @@ export default function AboutYou() {
           style={[INPUT, { minHeight: 72, textAlignVertical: 'top', marginBottom: 36 }]}
         />
 
-        <TouchableOpacity
+        <PrimaryButton
+          label={saving ? `${t('common.save')}…` : t('common.continue')}
           onPress={handleContinue}
-          disabled={saving}
-          activeOpacity={0.85}
-          style={{
-            backgroundColor: '#b15f00', borderRadius: 20,
-            paddingVertical: 16, alignItems: 'center',
-            opacity: saving ? 0.7 : 1,
-            shadowColor: '#b15f00', shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-          }}
-        >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
-            {saving ? `${t('common.save')}…` : t('common.continue')}
-          </Text>
-        </TouchableOpacity>
+          loading={saving}
+        />
       </ScrollView>
     </SafeAreaView>
   )

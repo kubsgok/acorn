@@ -13,7 +13,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.acorn"
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +22,11 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -33,7 +38,9 @@
       "expo-notifications",
       [
         "expo-camera",
-        { "cameraPermission": "Allow Acorn to access your camera to scan medication labels." }
+        {
+          "cameraPermission": "Allow Acorn to access your camera to scan medication labels."
+        }
       ]
     ]
   }

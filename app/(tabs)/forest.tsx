@@ -9,6 +9,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   Easing,
   FadeInDown,
+  SlideInDown,
   runOnJS,
   SharedValue,
   useSharedValue,
@@ -20,7 +21,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import { supabase } from '../../src/lib/supabase'
 import { recomputeStreak } from '../../src/lib/streaks'
-import { mainTreeStage, loadGrove, GroveTree, UnplacedTree } from '../../src/lib/treeGrowth'
+import { mainTreeStage, loadGrove, GroveTree, UnplacedTree, MAX_PLANTED_STAGE } from '../../src/lib/treeGrowth'
 import { MAIN_TREE_IMAGES, GROVE_BG, TREE_IDS, treeById } from '../../src/lib/treeCatalog'
 import { MAIN_TREE_POS, clampToGround, depthFor, DEFAULT_TREE_SPOTS, ScenePos } from '../../src/lib/groveLayout'
 import { DraggableDecoration } from '../../src/components/DraggableDecoration'
@@ -40,7 +41,14 @@ const MILESTONES = [
   { days: 30, bonus: 60, emoji: '🌸' },
 ]
 const TREE_SHADOW = { centerX: 0.5, baseY: 0.97, widthPct: 0.44 }
-const MAIN_WIDTH = 0.42 // main tree width as a fraction of the scene
+
+// The main-tree art fills its canvas by different amounts per stage (stage 3 is
+// the tallest sprite, 4–5 are wide-but-short canopies), so a single frame width
+// makes the tree appear to shrink as it "grows". These per-stage frame widths
+// are tuned so the RENDERED tree height increases monotonically 0→5, and the
+// shadow width tracks each sprite's actual footprint.
+const MAIN_STAGE_WIDTH = [0.467, 0.415, 0.399, 0.337, 0.570, 0.593]
+const MAIN_STAGE_SHADOW = [0.17, 0.27, 0.26, 0.47, 0.62, 0.78]
 
 // Planted trees reuse the den's DraggableDecoration, whose base is
 // DECORATION_WIDTH (0.16). That's too small for the grove — a fresh sapling
@@ -124,7 +132,8 @@ function MainTree({ stage }: { stage: number }) {
     return () => { sway.value = 0 }
   }, [sway]))
   const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${sway.value * 1.1}deg` }] }))
-  const w = MAIN_WIDTH
+  const w = MAIN_STAGE_WIDTH[stage] ?? 0.42
+  const shadowW = MAIN_STAGE_SHADOW[stage] ?? 0.4
   return (
     <View
       pointerEvents="none"
@@ -133,10 +142,10 @@ function MainTree({ stage }: { stage: number }) {
         left: `${(MAIN_TREE_POS.x - w / 2) * 100}%`,
         top: `${(MAIN_TREE_POS.y - w * 1.25) * 100}%`,
         width: `${w * 100}%`,
-        aspectRatio: 512 / 640,
+        aspectRatio: 560 / 700,
       }}
     >
-      <ContactShadow spec={{ centerX: 0.5, baseY: 0.98, widthPct: 0.4 }} />
+      <ContactShadow spec={{ centerX: 0.5, baseY: 0.98, widthPct: shadowW }} />
       <Animated.Image source={MAIN_TREE_IMAGES[stage]} resizeMode="contain" style={[{ width: '100%', height: '100%' }, style]} />
     </View>
   )
@@ -301,10 +310,20 @@ export default function ForestScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fef3c7', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#8d4b00' }}>🌰 {balance}</Text>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff1e6', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
+            {/* DEV: long-press to add a streak day for testing tree growth — remove before release */}
+            <Pressable
+              onLongPress={() => {
+                // DEV: grow the main tree (streak) AND every planted tree a stage
+                useAcornStore.setState((s) => ({ currentStreak: s.currentStreak + 1, longestStreak: Math.max(s.longestStreak, s.currentStreak + 1) }))
+                setTrees((prev) => prev.map((t) => ({ ...t, stage: Math.min(t.stage + 1, MAX_PLANTED_STAGE) })))
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+              }}
+              delayLongPress={500}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fff1e6', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}
+            >
               <MaterialCommunityIcons name="fire" size={15} color="#b15f00" />
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#8d4b00' }}>{currentStreak}d</Text>
-            </View>
+            </Pressable>
             <TouchableOpacity
               onPress={() => setIntroOpen(true)}
               hitSlop={8}
@@ -421,18 +440,20 @@ export default function ForestScreen() {
       )}
 
       {/* Info modal */}
-      <Modal visible={introOpen} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 40 }}>
-            <ForestIntroContent />
-            <TouchableOpacity
-              onPress={() => setIntroOpen(false)}
-              style={{ backgroundColor: '#3f7d34', borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 24 }}
-            >
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('common.gotIt')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+      <Modal visible={introOpen} transparent animationType="fade" onRequestClose={() => setIntroOpen(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }} onPress={() => setIntroOpen(false)}>
+          <Animated.View entering={SlideInDown.springify().damping(18).mass(0.7)}>
+            <Pressable style={{ backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 40 }}>
+              <ForestIntroContent />
+              <TouchableOpacity
+                onPress={() => setIntroOpen(false)}
+                style={{ backgroundColor: '#3f7d34', borderRadius: 14, padding: 16, alignItems: 'center', marginTop: 24 }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('common.gotIt')}</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
       </Modal>
     </SafeAreaView>
   )

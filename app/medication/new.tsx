@@ -7,6 +7,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
 import { useAuthStore } from '../../src/stores/authStore'
 import { pickImage, extractMedInfo } from '../../src/lib/ocr'
+import { syncMedicationReminders } from '../../src/lib/notifications'
 
 const COLORS = [
   '#f59e0b', // amber-500
@@ -149,6 +150,7 @@ export default function NewMedication() {
       const { error } = await supabase.from('medications').update(fields).eq('id', id)
       if (error) { Alert.alert('Error', error.message); setLoading(false); return }
       await reconcileSchedules(id)
+      await syncMedicationReminders(user.id)
       setLoading(false)
       router.back()
       return
@@ -166,6 +168,7 @@ export default function NewMedication() {
       await supabase.from('medication_schedules').insert(rows)
     }
 
+    await syncMedicationReminders(user.id)
     setLoading(false)
     router.back()
   }

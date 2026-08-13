@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { supabase } from '../../src/lib/supabase'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useT, LANGUAGES } from '../../src/lib/i18n'
+import { syncMedicationReminders } from '../../src/lib/notifications'
 
 interface Med {
   id: string
@@ -112,6 +113,7 @@ export default function SettingsScreen() {
         text: 'Delete', style: 'destructive', onPress: async () => {
           await supabase.from('medications').delete().eq('id', id)
           setMeds((prev) => prev.filter((m) => m.id !== id))
+          if (user) await syncMedicationReminders(user.id)
         }
       }
     ])

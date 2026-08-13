@@ -4,9 +4,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Notifications from 'expo-notifications'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import Animated, { FadeInDown } from 'react-native-reanimated'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
 import { useT } from '../../src/lib/i18n'
+import { syncMedicationReminders } from '../../src/lib/notifications'
+import { Eyebrow, IconTile, StepDots, PrimaryButton, softShadow } from '../../src/components/onboardingUI'
 
 const BULLETS = [
   { icon: 'clock-outline' as const, key: 'notif.b1' },
@@ -23,6 +26,7 @@ export default function NotificationsScreen() {
 
   async function handleAllow() {
     await Notifications.requestPermissionsAsync()
+    if (user) syncMedicationReminders(user.id) // schedule reminders now that we (may) have permission
     await finish()
   }
 
@@ -38,26 +42,25 @@ export default function NotificationsScreen() {
       <View style={{ flex: 1, paddingHorizontal: 28, paddingTop: 56 }}>
 
         {/* Header */}
-        <View style={{
-          width: 72, height: 72, borderRadius: 24,
-          backgroundColor: '#fef3c7',
-          alignItems: 'center', justifyContent: 'center',
-          marginBottom: 24,
-        }}>
-          <MaterialCommunityIcons name="bell-outline" size={34} color="#b15f00" />
-        </View>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.3 }}>
-          {t('notif.title', { name: squirrelName })}
-        </Text>
-        <Text style={{ fontSize: 15, color: '#554336', marginTop: 8, marginBottom: 32, lineHeight: 22 }}>
-          {t('notif.subtitle', { name: squirrelName })}
-        </Text>
+        <StepDots step={4} total={5} style={{ marginBottom: 28 }} />
+        <Animated.View entering={FadeInDown.duration(600)}>
+          <IconTile><MaterialCommunityIcons name="bell-outline" size={34} color="#b15f00" /></IconTile>
+          <View style={{ marginTop: 22 }}>
+            <Eyebrow label={t('ob.step', { n: 5, total: 5 })} />
+          </View>
+          <Text style={{ fontSize: 30, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.5 }}>
+            {t('notif.title', { name: squirrelName })}
+          </Text>
+          <Text style={{ fontSize: 15, color: '#554336', marginTop: 8, marginBottom: 32, lineHeight: 22 }}>
+            {t('notif.subtitle', { name: squirrelName })}
+          </Text>
+        </Animated.View>
 
         {/* Info card */}
-        <View style={{
-          backgroundColor: '#fff', borderRadius: 16, padding: 20,
-          borderWidth: 1, borderColor: '#dbc2b0', marginBottom: 40, gap: 16,
-        }}>
+        <Animated.View entering={FadeInDown.duration(600).delay(140)} style={[{
+          backgroundColor: '#fff', borderRadius: 20, padding: 20,
+          marginBottom: 20, gap: 16,
+        }, softShadow]}>
           <Text style={{ fontSize: 13, fontWeight: '700', color: '#554336', letterSpacing: 0.3, textTransform: 'uppercase' }}>
             {t('notif.whatToExpect')}
           </Text>
@@ -73,33 +76,22 @@ export default function NotificationsScreen() {
               <Text style={{ fontSize: 14, color: '#554336', flex: 1, lineHeight: 20 }}>{t(b.key)}</Text>
             </View>
           ))}
-        </View>
+        </Animated.View>
 
         {/* Bonus acorn reward */}
-        <View style={{
-          backgroundColor: '#fef3c7', borderRadius: 14, padding: 14,
+        <Animated.View entering={FadeInDown.duration(600).delay(240)} style={{
+          backgroundColor: '#fef3c7', borderRadius: 16, padding: 14,
           flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 32,
         }}>
           <Text style={{ fontSize: 24 }}>🌰</Text>
           <Text style={{ fontSize: 14, color: '#8d4b00', fontWeight: '600', flex: 1 }}>
             {t('notif.bonus')}
           </Text>
-        </View>
+        </Animated.View>
 
         <View style={{ flex: 1 }} />
 
-        <TouchableOpacity
-          onPress={handleAllow}
-          activeOpacity={0.85}
-          style={{
-            backgroundColor: '#b15f00', borderRadius: 20,
-            paddingVertical: 16, alignItems: 'center', marginBottom: 12,
-            shadowColor: '#b15f00', shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
-          }}
-        >
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('notif.allow')}</Text>
-        </TouchableOpacity>
+        <PrimaryButton label={t('notif.allow')} onPress={handleAllow} icon="bell-ring-outline" style={{ marginBottom: 12 }} />
 
         <TouchableOpacity onPress={finish} style={{ padding: 12, alignItems: 'center', marginBottom: 8 }}>
           <Text style={{ color: '#a8a29e', fontSize: 14, fontWeight: '600' }}>{t('notif.skip')}</Text>

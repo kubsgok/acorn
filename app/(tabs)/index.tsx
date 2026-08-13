@@ -1,10 +1,21 @@
-import { useCallback, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator, Dimensions } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import Animated, {
+  Easing,
+  runOnJS,
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
 import { useFocusEffect, router } from 'expo-router'
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons'
 import { supabase } from '../../src/lib/supabase'
 import { markMissedDoses, recomputeStreak } from '../../src/lib/streaks'
+import { syncMedicationReminders, cancelDoseNotifications } from '../../src/lib/notifications'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
 import { useT } from '../../src/lib/i18n'
@@ -57,6 +68,42 @@ function getMoodMessage(squirrelName: string, allDone: boolean, overdueLogs: Med
   return 'Take your medication to start a streak.'
 }
 
+interface CoinDesc {
+  id: string
+  from: { x: number; y: number }
+  to: { x: number; y: number }
+  delay: number
+  value: number
+}
+
+// A single acorn that arcs from a burst point up to the balance chip, then
+// reports its value so the counter can tick up (Clash-Royale-style coin fly).
+function Coin({ desc, onLand }: { desc: CoinDesc; onLand: (value: number) => void }) {
+  const p = useSharedValue(0)
+  useEffect(() => {
+    p.value = withDelay(
+      desc.delay,
+      withTiming(1, { duration: 620, easing: Easing.bezier(0.36, 0, 0.2, 1) }, (finished) => {
+        if (finished) runOnJS(onLand)(desc.value)
+      })
+    )
+  }, [])
+  const style = useAnimatedStyle(() => {
+    const tt = p.value
+    const x = desc.from.x + (desc.to.x - desc.from.x) * tt
+    // parabolic lift so coins arc upward before landing on the counter
+    const y = desc.from.y + (desc.to.y - desc.from.y) * tt - Math.sin(tt * Math.PI) * 70
+    const scale = 1 - 0.45 * tt
+    const opacity = tt > 0.9 ? 1 - (tt - 0.9) / 0.1 : 1
+    return { transform: [{ translateX: x }, { translateY: y }, { scale }], opacity }
+  })
+  return (
+    <Animated.View style={[{ position: 'absolute', left: -14, top: -14 }, style]} pointerEvents="none">
+      <Text style={{ fontSize: 26 }}>🌰</Text>
+    </Animated.View>
+  )
+}
+
 export default function HomeScreen() {
   const { t } = useT()
   const user = useAuthStore((s) => s.user)
@@ -69,7 +116,69 @@ export default function HomeScreen() {
   const [showConfirm, setShowConfirm] = useState<MedLog | null>(null)
   const [showConfirmAll, setShowConfirmAll] = useState(false)
   const [loggingAll, setLoggingAll] = useState(false)
-  const [lastEarned, setLastEarned] = useState<number | null>(null)
+
+  // Acorn coin-fly animation → balance chip
+  const rootRef = useRef<View>(null)
+  const acornChipRef = useRef<View>(null)
+  const [displayBalance, setDisplayBalance] = useState(balance)
+  const [coins, setCoins] = useState<CoinDesc[]>([])
+  const animatingRef = useRef(false)
+  const chipScale = useSharedValue(1)
+  const chipStyle = useAnimatedStyle(() => ({ transform: [{ scale: chipScale.value }] }))
+
+  // Keep the shown balance in sync with the store whenever no fly is running.
+  useEffect(() => {
+    if (!animatingRef.current) setDisplayBalance(balance)
+  }, [balance])
+
+  function popChip() {
+    chipScale.value = withSequence(
+      withTiming(1.28, { duration: 110, easing: Easing.out(Easing.quad) }),
+      withSpring(1, { damping: 8, stiffness: 260 })
+    )
+  }
+
+  function handleLand(value: number, isLast: boolean) {
+    setDisplayBalance((b) => b + value)
+    popChip()
+    if (isLast) {
+      animatingRef.current = false
+      setTimeout(() => {
+        setCoins([])
+        setDisplayBalance(useAcornStore.getState().balance)
+      }, 80)
+    }
+  }
+
+  // Emit `amount` acorns that arc up to the balance chip, ticking it up.
+  function flyAcorns(amount: number) {
+    const root = rootRef.current
+    const chip = acornChipRef.current
+    if (amount <= 0 || !root || !chip) {
+      // Fallback: no animation possible — just show the real balance.
+      animatingRef.current = false
+      setDisplayBalance(useAcornStore.getState().balance)
+      return
+    }
+    chip.measureInWindow((cx, cy, cw, ch) => {
+      root.measureInWindow((rx, ry) => {
+        const { width: W, height: H } = Dimensions.get('window')
+        const target = { x: cx - rx + cw / 2, y: cy - ry + ch / 2 }
+        const source = { x: W / 2 - rx, y: H * 0.5 - ry }
+        const n = Math.min(amount, 12)
+        const base = Math.floor(amount / n)
+        const rem = amount - base * n
+        const descs: CoinDesc[] = Array.from({ length: n }).map((_, i) => ({
+          id: `${Date.now()}-${i}`,
+          from: { x: source.x + (Math.random() - 0.5) * 100, y: source.y + (Math.random() - 0.5) * 50 },
+          to: target,
+          delay: i * 55,
+          value: base + (i < rem ? 1 : 0),
+        }))
+        setCoins(descs)
+      })
+    })
+  }
 
   const load = useCallback(async () => {
     if (!user) return
@@ -134,6 +243,9 @@ export default function HomeScreen() {
     await loadAcorns(user.id)
     await recomputeStreak(user.id)
     setLoading(false)
+
+    // Refresh local dose reminders + 2-hour follow-ups (fire-and-forget)
+    syncMedicationReminders(user.id)
   }, [user, loadAcorns])
 
   useFocusEffect(useCallback(() => { load() }, [load]))
@@ -152,13 +264,17 @@ export default function HomeScreen() {
       acorns_earned: acorns,
     }).eq('id', log.id)
 
+    // Freeze the shown balance, then fly the earned acorns up to the chip.
+    animatingRef.current = true
     await addAcorns(user.id, acorns)
-    setLastEarned(acorns)
-    setTimeout(() => setLastEarned(null), 2000)
+    flyAcorns(acorns)
 
     setLogs((prev) => prev.map((l) => l.id === log.id ? { ...l, status, logged_at: now.toISOString(), acorns_earned: acorns } : l))
     setLogging(null)
     setShowConfirm(null)
+
+    // Dose logged → cancel its pending 2-hour follow-up reminder
+    cancelDoseNotifications(log.schedule_id, log.scheduled_at)
 
     // Last dose of the day just logged — the streak (and the forest) grows now
     const dayComplete = logs.every((l) => l.id === log.id || l.status !== 'pending')
@@ -183,9 +299,9 @@ export default function HomeScreen() {
       }).eq('id', u.id)
     ))
 
+    animatingRef.current = true
     await addAcorns(user.id, total)
-    setLastEarned(total)
-    setTimeout(() => setLastEarned(null), 2000)
+    flyAcorns(total)
 
     setLogs((prev) => prev.map((l) => {
       const u = updates.find((x) => x.id === l.id)
@@ -193,6 +309,9 @@ export default function HomeScreen() {
     }))
     setLoggingAll(false)
     setShowConfirmAll(false)
+
+    // Cancel pending follow-ups for every dose just logged
+    pending.forEach((l) => cancelDoseNotifications(l.schedule_id, l.scheduled_at))
 
     // The day is now complete — grow the streak (and the forest)
     await recomputeStreak(user.id)
@@ -310,27 +429,15 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff8f5' }} edges={['top']}>
-      {/* Acorn earned toast */}
-      {lastEarned && (
-        <View style={{
-          position: 'absolute', top: 60, alignSelf: 'center', zIndex: 99,
-          backgroundColor: '#b15f00', borderRadius: 24,
-          paddingHorizontal: 20, paddingVertical: 10,
-          flexDirection: 'row', alignItems: 'center', gap: 6,
-        }}>
-          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>+{lastEarned} 🌰</Text>
-        </View>
-      )}
-
+    <SafeAreaView ref={rootRef} style={{ flex: 1, backgroundColor: '#fff8f5' }} edges={['top']}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+            <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 26, fontWeight: '800', color: '#1c1917', letterSpacing: -0.5 }}>
                 {greeting}
               </Text>
@@ -338,15 +445,18 @@ export default function HomeScreen() {
             </View>
 
             {/* Pills */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexShrink: 0 }}>
               {/* Acorn balance */}
-              <View style={{
-                flexDirection: 'row', alignItems: 'center', gap: 5,
-                backgroundColor: '#fef3c7', borderRadius: 20,
-                paddingHorizontal: 12, paddingVertical: 6,
-              }}>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#8d4b00' }}>🌰 {balance}</Text>
-              </View>
+              <Animated.View
+                ref={acornChipRef}
+                style={[{
+                  flexDirection: 'row', alignItems: 'center', gap: 5,
+                  backgroundColor: '#fef3c7', borderRadius: 20,
+                  paddingHorizontal: 12, paddingVertical: 6,
+                }, chipStyle]}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#8d4b00' }}>🌰 {displayBalance}</Text>
+              </Animated.View>
 
               {/* Streak */}
               <View style={{
@@ -592,6 +702,15 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Flying acorns overlay */}
+      {coins.length > 0 && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: 0, top: 0, right: 0, bottom: 0, zIndex: 200 }}>
+          {coins.map((c, i) => (
+            <Coin key={c.id} desc={c} onLand={(v) => handleLand(v, i === coins.length - 1)} />
+          ))}
+        </View>
+      )}
     </SafeAreaView>
   )
 }
