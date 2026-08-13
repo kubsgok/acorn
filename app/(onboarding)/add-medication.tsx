@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Platform } from 'react-native'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -26,6 +26,8 @@ export default function AddMedication() {
   const [scanning, setScanning] = useState(false)
 
   function handleScan() {
+    // Web has no multi-button alert / native camera — go straight to upload.
+    if (Platform.OS === 'web') { runScan('gallery'); return }
     Alert.alert('Scan medication label', 'Choose a source', [
       { text: 'Camera', onPress: () => runScan('camera') },
       { text: 'Photo Library', onPress: () => runScan('gallery') },
@@ -38,7 +40,7 @@ export default function AddMedication() {
     if (!image) return
     setScanning(true)
     try {
-      const result = await extractMedInfo(image.base64)
+      const result = await extractMedInfo(image.base64, image.mediaType)
       if (result.name) setName(result.name)
       if (result.dose) setDose(result.dose)
       if (result.notes) setNotes(result.notes)

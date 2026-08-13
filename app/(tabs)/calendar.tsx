@@ -219,7 +219,7 @@ export function CalendarView() {
       </View>
 
       {/* Legend */}
-      <View style={{ flexDirection: 'row', gap: 16, justifyContent: 'center', marginBottom: 24 }}>
+      <View style={{ flexDirection: 'row', gap: 16, justifyContent: 'center', marginBottom: 10 }}>
         {[
           { status: 'perfect' as DayStatus, label: 'All taken' },
           { status: 'partial' as DayStatus,  label: 'Partial' },
@@ -232,6 +232,12 @@ export function CalendarView() {
         ))}
       </View>
 
+      {/* Tap hint */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 24 }}>
+        <Ionicons name="hand-left-outline" size={13} color="#a8a29e" />
+        <Text style={{ fontSize: 12, color: '#a8a29e', fontWeight: '500' }}>Tap a day to see the medications you took</Text>
+      </View>
+
       {/* Selected day detail */}
       {selected && (
         <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 20, marginBottom: 20, ...cardShadow }}>
@@ -240,7 +246,11 @@ export function CalendarView() {
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
             <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: statusBg(selected.status), alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 22 }}>{selected.status === 'perfect' ? '✅' : selected.status === 'partial' ? '⚠️' : '❌'}</Text>
+              <Ionicons
+                name={selected.status === 'perfect' ? 'checkmark-circle' : selected.status === 'partial' ? 'alert-circle' : 'close-circle'}
+                size={26}
+                color={statusColor(selected.status)}
+              />
             </View>
             <View>
               <Text style={{ fontSize: 16, fontWeight: '700', color: '#1f1b17' }}>{selected.taken} of {selected.total} taken</Text>

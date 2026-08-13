@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator, Dimensions } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Alert, Modal, ActivityIndicator, Dimensions, Image } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Animated, {
   Easing,
@@ -19,6 +19,7 @@ import { syncMedicationReminders, cancelDoseNotifications } from '../../src/lib/
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
 import { useT } from '../../src/lib/i18n'
+import { SQUIRREL_IMAGE } from '../../src/lib/forestStages'
 
 interface MedLog {
   id: string
@@ -53,12 +54,12 @@ function isOverdue(log: MedLog): boolean {
   return diffMins > 60
 }
 
-function getSquirrelMood(currentStreak: number, allDone: boolean, hasOverdue: boolean, hasPending: boolean): string {
-  if (allDone) return '🐿️'       // all taken — excited
-  if (hasOverdue) return '😟'     // overdue doses — worried
-  if (hasPending) return '😊'    // upcoming doses, nothing wrong yet — happy/idle
-  if (currentStreak === 0) return '😔'  // no meds today, no streak — sad
-  return '😊'
+// A small status-dot color that conveys the squirrel's mood without an emoji.
+function getMoodColor(allDone: boolean, hasOverdue: boolean, hasPending: boolean): string {
+  if (allDone) return '#16a34a'      // all taken — green
+  if (hasOverdue) return '#dc2626'   // overdue — red
+  if (hasPending) return '#d97706'   // upcoming — amber
+  return '#a8a29e'                    // nothing scheduled — gray
 }
 
 function getMoodMessage(squirrelName: string, allDone: boolean, overdueLogs: MedLog[], currentStreak: number): string {
@@ -487,17 +488,19 @@ export default function HomeScreen() {
             }}>
             <View style={{
               width: 56, height: 56, borderRadius: 28,
-              backgroundColor: '#fde68a',
+              backgroundColor: '#fdebd7',
               alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
             }}>
-              <Text style={{ fontSize: 30 }}>
-                {getSquirrelMood(currentStreak, allDone, overdueLogs.length > 0, upcomingLogs.length > 0)}
-              </Text>
+              <Image source={SQUIRREL_IMAGE} style={{ width: 48, height: 48 }} resizeMode="contain" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#1c1917' }}>
-                {squirrelName ?? 'Nutmeg'}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: getMoodColor(allDone, overdueLogs.length > 0, upcomingLogs.length > 0) }} />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#1c1917' }}>
+                  {squirrelName ?? 'Nutmeg'}
+                </Text>
+              </View>
               <Text style={{ fontSize: 13, color: '#78716c', marginTop: 3, lineHeight: 18 }}>
                 {getMoodMessage(squirrelName ?? 'Nutmeg', allDone, overdueLogs, currentStreak)}
               </Text>

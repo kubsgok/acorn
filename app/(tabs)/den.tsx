@@ -326,16 +326,16 @@ export default function ForestScreen() {
       >
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-          <View>
-            <Text style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.3 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontSize: 28, fontWeight: '800', color: '#1f1b17', letterSpacing: -0.3 }}>
               {t('den.header')}
             </Text>
             <Text style={{ fontSize: 14, color: '#554336', marginTop: 4 }}>
               {t('den.sub')}
             </Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexShrink: 0 }}>
             {/* DEV: long-press to grant +500 acorns for testing — remove before release */}
             <Pressable
               onLongPress={async () => {
@@ -595,7 +595,7 @@ export default function ForestScreen() {
       {/* Info modal */}
       <Modal visible={introOpen} transparent animationType="fade" onRequestClose={() => setIntroOpen(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }} onPress={() => setIntroOpen(false)}>
-          <Animated.View entering={SlideInDown.springify().damping(18).mass(0.7)}>
+          <Animated.View entering={SlideInDown.duration(260)}>
             <Pressable style={{ backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 40 }}>
               <DenIntroContent />
               <TouchableOpacity

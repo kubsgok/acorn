@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  KeyboardAvoidingView, Platform, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Image,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { supabase } from '../src/lib/supabase'
+import { SQUIRREL_IMAGE } from '../src/lib/forestStages'
 import { useAuthStore } from '../src/stores/authStore'
 import { useAcornStore } from '../src/stores/acornStore'
 
@@ -93,31 +94,18 @@ function makeGreeting(ctx: UserContext): string {
 }
 
 async function callClaude(systemPrompt: string, history: { role: string; content: string }[]): Promise<string> {
-  const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('EXPO_PUBLIC_ANTHROPIC_API_KEY is not set.')
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
+  // Routes through the `claude` Edge Function so the Anthropic key stays server-side.
+  const { data, error } = await supabase.functions.invoke('claude', {
+    body: {
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 300,
       system: systemPrompt,
       messages: history,
-    }),
+    },
   })
 
-  if (!response.ok) {
-    const err = await response.text()
-    throw new Error(`Chat request failed: ${err}`)
-  }
-
-  const data = await response.json()
-  return data.content?.[0]?.text ?? "Sorry, I couldn't think of anything to say! 🐿️"
+  if (error) throw new Error(`Chat request failed: ${error.message}`)
+  return data?.content?.[0]?.text ?? "Sorry, I couldn't think of anything to say!"
 }
 
 export default function ChatScreen() {
@@ -245,7 +233,7 @@ export default function ChatScreen() {
       const errorMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "Oops, I got a bit confused! 🐿️ Try again in a moment.",
+        content: "Oops, I got a bit confused! Try again in a moment.",
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMsg])
@@ -275,11 +263,12 @@ export default function ChatScreen() {
             {/* Squirrel avatar */}
             <View style={{
               width: 40, height: 40, borderRadius: 20,
-              backgroundColor: '#fde68a',
+              backgroundColor: '#fdebd7',
               borderWidth: 2, borderColor: '#8d4b00',
               alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
             }}>
-              <Text style={{ fontSize: 20 }}>🐿️</Text>
+              <Image source={SQUIRREL_IMAGE} style={{ width: 34, height: 34 }} resizeMode="contain" />
             </View>
             <View>
               <Text style={{ fontSize: 17, fontWeight: '700', color: '#1f1b17', letterSpacing: -0.3 }}>{name}</Text>
@@ -326,11 +315,11 @@ export default function ChatScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
                       <View style={{
                         width: 32, height: 32, borderRadius: 16,
-                        backgroundColor: '#fde68a',
+                        backgroundColor: '#fdebd7',
                         alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0,
+                        flexShrink: 0, overflow: 'hidden',
                       }}>
-                        <Text style={{ fontSize: 16 }}>🐿️</Text>
+                        <Image source={SQUIRREL_IMAGE} style={{ width: 27, height: 27 }} resizeMode="contain" />
                       </View>
                       <View style={{
                         backgroundColor: '#fcf2eb',
@@ -402,10 +391,11 @@ export default function ChatScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
                 <View style={{
                   width: 32, height: 32, borderRadius: 16,
-                  backgroundColor: '#fde68a',
+                  backgroundColor: '#fdebd7',
                   alignItems: 'center', justifyContent: 'center',
+                  overflow: 'hidden',
                 }}>
-                  <Text style={{ fontSize: 16 }}>🐿️</Text>
+                  <Image source={SQUIRREL_IMAGE} style={{ width: 27, height: 27 }} resizeMode="contain" />
                 </View>
                 <View style={{
                   backgroundColor: '#fcf2eb', borderWidth: 1, borderColor: '#dbc2b0',

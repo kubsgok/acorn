@@ -1,0 +1,4 @@
+project_id = "acorn"
+
+[functions.claude]
+verify_jwt = true

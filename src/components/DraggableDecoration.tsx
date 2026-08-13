@@ -36,8 +36,10 @@ export function DraggableDecoration({ rowId, image, pos, kind, depthScale, scene
   const ty = useSharedValue(0)
   const lift = useSharedValue(0)
   const land = useSharedValue(1)
+  const grow = useSharedValue(1)
   const posKey = `${pos.x.toFixed(3)},${pos.y.toFixed(3)}`
   const prevKey = useRef(posKey)
+  const prevImage = useRef(image)
 
   useEffect(() => {
     if (posKey !== prevKey.current) {
@@ -48,6 +50,15 @@ export function DraggableDecoration({ rowId, image, pos, kind, depthScale, scene
       )
     }
   }, [posKey, land])
+
+  // Grow up from the ground when the sprite advances a stage.
+  useEffect(() => {
+    if (image !== prevImage.current) {
+      prevImage.current = image
+      grow.value = 0.55
+      grow.value = withSpring(1, { damping: 9, stiffness: 120, mass: 0.9 })
+    }
+  }, [image, grow])
 
   const pan = Gesture.Pan()
     .minDistance(6)
@@ -95,7 +106,7 @@ export function DraggableDecoration({ rowId, image, pos, kind, depthScale, scene
     const transform: any[] = [
       { translateX: tx.value },
       { translateY: ty.value - lift.value * HOVER_PX },
-      { scale: (1 + lift.value * 0.08) * land.value },
+      { scale: (1 + lift.value * 0.08) * land.value * grow.value },
     ]
     if (wallSkew) {
       transform.push({ skewY: wallSkew }, { scaleX: 0.92 })
@@ -123,7 +134,7 @@ export function DraggableDecoration({ rowId, image, pos, kind, depthScale, scene
             <ContactShadow lift={lift} spec={shadow} />
           </Animated.View>
         )}
-        <Animated.View style={[{ width: '100%', height: '100%' }, spriteLayerStyle]}>
+        <Animated.View style={[{ width: '100%', height: '100%', transformOrigin: '50% 100%' }, spriteLayerStyle]}>
           <Animated.Image source={image} resizeMode="contain" style={{ width: '100%', height: '100%' }} />
         </Animated.View>
       </Animated.View>

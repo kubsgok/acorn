@@ -106,6 +106,8 @@ export default function NewMedication() {
   }
 
   function handleScan() {
+    // Web has no multi-button alert / native camera — go straight to upload.
+    if (Platform.OS === 'web') { runScan('gallery'); return }
     Alert.alert('Scan medication label', 'Choose a source', [
       { text: 'Camera', onPress: () => runScan('camera') },
       { text: 'Photo Library', onPress: () => runScan('gallery') },
@@ -118,7 +120,7 @@ export default function NewMedication() {
     if (!image) return
     setScanning(true)
     try {
-      const result = await extractMedInfo(image.base64)
+      const result = await extractMedInfo(image.base64, image.mediaType)
       if (result.name) setName(result.name)
       if (result.dose) setDose(result.dose)
       if (result.notes) setNotes(result.notes)

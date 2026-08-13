@@ -8,6 +8,7 @@ import { supabase } from '../../src/lib/supabase'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useT, LANGUAGES } from '../../src/lib/i18n'
 import { syncMedicationReminders } from '../../src/lib/notifications'
+import { SQUIRREL_IMAGE } from '../../src/lib/forestStages'
 
 interface Med {
   id: string
@@ -166,9 +167,6 @@ export default function SettingsScreen() {
           </TouchableOpacity>
           <Text style={{ fontSize: 22, fontWeight: '800', color: '#b15f00', letterSpacing: -0.5 }}>Acorn</Text>
         </View>
-        <TouchableOpacity style={{ padding: 8, borderRadius: 20 }} onPress={() => router.push('/(tabs)/calendar')}>
-          <MaterialCommunityIcons name="calendar-today" size={22} color="#b15f00" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -191,10 +189,10 @@ export default function SettingsScreen() {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
               <View style={{
-                backgroundColor: '#fef3c7', padding: 12, borderRadius: 14,
-                alignItems: 'center', justifyContent: 'center',
+                backgroundColor: '#fef3c7', borderRadius: 14, overflow: 'hidden',
+                alignItems: 'center', justifyContent: 'center', width: 48, height: 48,
               }}>
-                <Text style={{ fontSize: 22 }}>🐿️</Text>
+                <Image source={SQUIRREL_IMAGE} style={{ width: 40, height: 40 }} resizeMode="contain" />
               </View>
               <View>
                 <Text style={{ fontSize: 11, fontWeight: '600', color: '#78716c', letterSpacing: 0.3, textTransform: 'uppercase' }}>
@@ -209,41 +207,6 @@ export default function SettingsScreen() {
               <MaterialCommunityIcons name="chevron-right" size={20} color="#b15f00" />
             </View>
           </TouchableOpacity>
-        </View>
-
-        {/* Language section */}
-        <View style={{ marginBottom: 28 }}>
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#554336', marginBottom: 10, paddingHorizontal: 2 }}>
-            {t('common.language')}
-          </Text>
-          <View style={{
-            backgroundColor: '#fff', borderRadius: 16, padding: 8,
-            shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
-            flexDirection: 'row', flexWrap: 'wrap', gap: 8,
-          }}>
-            {LANGUAGES.map((l) => {
-              const active = lang === l.code
-              return (
-                <TouchableOpacity
-                  key={l.code}
-                  onPress={() => setLang(l.code)}
-                  activeOpacity={0.85}
-                  style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 8,
-                    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
-                    backgroundColor: active ? '#fef3c7' : '#fff8f5',
-                    borderWidth: 1, borderColor: active ? '#e7c76a' : '#f0e6da',
-                  }}
-                >
-                  <Text style={{ fontSize: 16 }}>{l.flag}</Text>
-                  <Text style={{ fontSize: 14, fontWeight: active ? '700' : '500', color: active ? '#8d4b00' : '#554336' }}>
-                    {l.label}
-                  </Text>
-                  {active && <MaterialCommunityIcons name="check" size={16} color="#8d4b00" />}
-                </TouchableOpacity>
-              )
-            })}
-          </View>
         </View>
 
         {/* Medications section */}
@@ -343,6 +306,41 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Language section */}
+        <View style={{ marginBottom: 28 }}>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: '#554336', marginBottom: 10, paddingHorizontal: 2 }}>
+            {t('common.language')}
+          </Text>
+          <View style={{
+            backgroundColor: '#fff', borderRadius: 16, padding: 8,
+            shadowColor: '#7a4f2e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
+            flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+          }}>
+            {LANGUAGES.map((l) => {
+              const active = lang === l.code
+              return (
+                <TouchableOpacity
+                  key={l.code}
+                  onPress={() => setLang(l.code)}
+                  activeOpacity={0.85}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 8,
+                    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+                    backgroundColor: active ? '#fef3c7' : '#fff8f5',
+                    borderWidth: 1, borderColor: active ? '#e7c76a' : '#f0e6da',
+                  }}
+                >
+                  <Text style={{ fontSize: 16 }}>{l.flag}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: active ? '700' : '500', color: active ? '#8d4b00' : '#554336' }}>
+                    {l.label}
+                  </Text>
+                  {active && <MaterialCommunityIcons name="check" size={16} color="#8d4b00" />}
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+        </View>
+
         {/* Sign out + version */}
         <View style={{ paddingTop: 8, paddingBottom: 16, gap: 20 }}>
           <TouchableOpacity
@@ -376,11 +374,11 @@ export default function SettingsScreen() {
           }}>
             <View style={{
               width: 48, height: 48, borderRadius: 24,
-              backgroundColor: '#fef3c7',
+              backgroundColor: '#fef3c7', overflow: 'hidden',
               alignItems: 'center', justifyContent: 'center',
               alignSelf: 'center', marginBottom: 16,
             }}>
-              <Text style={{ fontSize: 24 }}>🐿️</Text>
+              <Image source={SQUIRREL_IMAGE} style={{ width: 40, height: 40 }} resizeMode="contain" />
             </View>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#1f1b17', textAlign: 'center' }}>
               {t('settings.rename')}

@@ -8,6 +8,10 @@ export interface TreeSpecies {
   emoji: string
   price: number
   stages: number[] // require()'d sprites, index = growth stage 0..2
+  // Fraction of each sprite's canvas its actual (non-transparent) content fills
+  // vertically. Used to render every species at a consistent on-screen size per
+  // stage regardless of how much padding its art has. Measured from the PNGs.
+  heightFrac: number[]
 }
 
 export const TREE_CATALOG: TreeSpecies[] = [
@@ -21,6 +25,7 @@ export const TREE_CATALOG: TreeSpecies[] = [
       require('../../assets/forest/tree/pine-1.png'),
       require('../../assets/forest/tree/pine-2.png'),
     ],
+    heightFrac: [0.273, 0.494, 0.985],
   },
   {
     id: 'tree-maple',
@@ -32,6 +37,7 @@ export const TREE_CATALOG: TreeSpecies[] = [
       require('../../assets/forest/tree/maple-1.png'),
       require('../../assets/forest/tree/maple-2.png'),
     ],
+    heightFrac: [0.317, 0.502, 0.967],
   },
   {
     id: 'tree-cherry',
@@ -43,6 +49,7 @@ export const TREE_CATALOG: TreeSpecies[] = [
       require('../../assets/forest/tree/cherry-1.png'),
       require('../../assets/forest/tree/cherry-2.png'),
     ],
+    heightFrac: [0.312, 0.644, 0.671],
   },
 ]
 

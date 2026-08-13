@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { createElement, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import * as Haptics from 'expo-haptics'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import Animated, { FadeInDown } from 'react-native-reanimated'
 import { useAuthStore } from '../../src/stores/authStore'
@@ -68,12 +69,15 @@ export default function AboutYou() {
     setGoals((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]))
   }
 
+  function setBirthdayFrom(picked: Date) {
+    setBirthday(picked)
+    setAge(String(ageFromBirthday(picked)))
+    Haptics.selectionAsync()
+  }
+
   function onPickDate(_: unknown, picked?: Date) {
     if (Platform.OS !== 'ios') setShowPicker(false)
-    if (picked) {
-      setBirthday(picked)
-      setAge(String(ageFromBirthday(picked)))
-    }
+    if (picked) setBirthdayFrom(picked)
   }
 
   async function handleContinue() {
@@ -150,15 +154,34 @@ export default function AboutYou() {
         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
           <View style={{ flex: 1.4 }}>
             <Text style={LABEL}>{t('about.birthday')}</Text>
-            <TouchableOpacity
-              onPress={() => setShowPicker((s) => !s)}
-              style={[INPUT, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-            >
-              <Text style={{ fontSize: 15, color: birthday ? '#1f1b17' : '#a8a29e' }}>
-                {birthday ? birthday.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : t('about.selectDate')}
-              </Text>
-              <MaterialCommunityIcons name="calendar" size={18} color="#b15f00" />
-            </TouchableOpacity>
+            {Platform.OS === 'web' ? (
+              // The native date picker doesn't render on web — use a real
+              // <input type="date"> (react-native-web renders to the DOM).
+              createElement('input', {
+                type: 'date',
+                max: localDateStr(new Date()),
+                value: birthday ? localDateStr(birthday) : '',
+                onChange: (e: any) => {
+                  const v = e.target.value
+                  if (v) setBirthdayFrom(new Date(v + 'T00:00:00'))
+                },
+                style: {
+                  backgroundColor: '#fff', border: '1px solid #dbc2b0', borderRadius: 14,
+                  padding: '13px 16px', fontSize: 15, color: '#1f1b17', width: '100%',
+                  fontFamily: 'inherit', boxSizing: 'border-box',
+                },
+              })
+            ) : (
+              <TouchableOpacity
+                onPress={() => { Haptics.selectionAsync(); setShowPicker((s) => !s) }}
+                style={[INPUT, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+              >
+                <Text style={{ fontSize: 15, color: birthday ? '#1f1b17' : '#a8a29e' }}>
+                  {birthday ? birthday.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : t('about.selectDate')}
+                </Text>
+                <MaterialCommunityIcons name="calendar" size={18} color="#b15f00" />
+              </TouchableOpacity>
+            )}
           </View>
           <View style={{ flex: 1 }}>
             <Text style={LABEL}>{t('about.age')}</Text>
@@ -171,7 +194,7 @@ export default function AboutYou() {
           </View>
         </View>
 
-        {showPicker && (
+        {showPicker && Platform.OS !== 'web' && (
           <View style={{ marginBottom: 20, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#dbc2b0', overflow: 'hidden' }}>
             <DateTimePicker
               value={birthday ?? new Date(2000, 0, 1)}

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, Image, Modal, Pressable, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect, router } from 'expo-router'
@@ -22,43 +22,42 @@ import Animated, {
 import { supabase } from '../../src/lib/supabase'
 import { recomputeStreak } from '../../src/lib/streaks'
 import { mainTreeStage, loadGrove, GroveTree, UnplacedTree, MAX_PLANTED_STAGE } from '../../src/lib/treeGrowth'
-import { MAIN_TREE_IMAGES, GROVE_BG, TREE_IDS, treeById } from '../../src/lib/treeCatalog'
-import { MAIN_TREE_POS, clampToGround, depthFor, DEFAULT_TREE_SPOTS, ScenePos } from '../../src/lib/groveLayout'
-import { DraggableDecoration } from '../../src/components/DraggableDecoration'
-import { ContactShadow } from '../../src/components/ContactShadow'
+import { MAIN_TREE_IMAGES, GROVE_BG, TREE_IDS, treeById, TreeSpecies } from '../../src/lib/treeCatalog'
+import { MAIN_TREE_POS, clampToGround, DEFAULT_TREE_SPOTS, ScenePos } from '../../src/lib/groveLayout'
+import { DraggableDecoration, DECORATION_WIDTH } from '../../src/components/DraggableDecoration'
 import { StageCelebration } from '../../src/components/StageCelebration'
 import { ForestIntroContent } from '../../src/components/ForestIntro'
 import { useAuthStore } from '../../src/stores/authStore'
 import { useAcornStore } from '../../src/stores/acornStore'
 import { useT } from '../../src/lib/i18n'
 
-const REWARDED_MILESTONE_KEY = 'acorn:lastRewardedMilestone'
+const REWARDED_STAGE_KEY = 'acorn:lastRewardedTreeStage'
 const FOREST_INTRO_SEEN_KEY = 'acorn:forestIntroSeen'
-const MILESTONES = [
-  { days: 3, bonus: 15, emoji: '🌿' },
-  { days: 7, bonus: 25, emoji: '🌲' },
-  { days: 14, bonus: 40, emoji: '🌳' },
-  { days: 30, bonus: 60, emoji: '🌸' },
-]
-const TREE_SHADOW = { centerX: 0.5, baseY: 0.97, widthPct: 0.44 }
+// Per-stage emoji + one-time bonus acorns, indexed by main-tree stage (0..5).
+// Stages 2/3/4/5 (streak days 3/7/14/30) award a bonus the first time reached.
+const STAGE_EMOJI = ['🌰', '🌱', '🌿', '🌲', '🌳', '🌸']
+const STAGE_BONUS = [0, 0, 15, 25, 40, 60]
 
 // The main-tree art fills its canvas by different amounts per stage (stage 3 is
 // the tallest sprite, 4–5 are wide-but-short canopies), so a single frame width
 // makes the tree appear to shrink as it "grows". These per-stage frame widths
-// are tuned so the RENDERED tree height increases monotonically 0→5, and the
-// shadow width tracks each sprite's actual footprint.
+// are tuned so the RENDERED tree height increases monotonically 0→5.
 const MAIN_STAGE_WIDTH = [0.467, 0.415, 0.399, 0.337, 0.570, 0.593]
-const MAIN_STAGE_SHADOW = [0.17, 0.27, 0.26, 0.47, 0.62, 0.78]
 
 // Planted trees reuse the den's DraggableDecoration, whose base is
-// DECORATION_WIDTH (0.16). That's too small for the grove — a fresh sapling
-// looked like a speck next to the main tree. Scale grove trees up, with a
-// gentle per-stage bump so a sapling still reads clearly and a mature tree
-// stands taller. Values are multipliers applied to depthScale.
-const TREE_WIDTH_FACTOR = 1.6
-const TREE_STAGE_BUMP = [1.0, 1.18, 1.34] // sapling → young → mature
-function treeDepthScale(y: number, stage: number): number {
-  return depthFor(y) * TREE_WIDTH_FACTOR * (TREE_STAGE_BUMP[stage] ?? 1)
+// DECORATION_WIDTH (0.16). Different species fill their sprite canvas by very
+// different amounts, so a flat scale made saplings look wildly inconsistent.
+// Instead, target a fixed on-screen HEIGHT per stage (as a fraction of the
+// scene) and derive each tree's frame width from its sprite's content-height
+// fraction — so every sapling renders the same size, every mature tree the
+// same size, regardless of species or position.
+const TREE_TARGET_HEIGHT = [0.16, 0.26, 0.4] // sapling → young → mature
+function treeDepthScale(species: TreeSpecies, stage: number): number {
+  const hfrac = species.heightFrac[stage] ?? 0.5
+  const targetH = TREE_TARGET_HEIGHT[stage] ?? 0.3
+  // DraggableDecoration multiplies this by DECORATION_WIDTH, and the sprite is
+  // `contain`ed in a square frame, so rendered height = hfrac * frameWidth.
+  return targetH / hfrac / DECORATION_WIDTH
 }
 
 // Soft, diffused, color-tinted ambient shadow (no harsh dark drop shadows).
@@ -122,6 +121,8 @@ function TreeInventoryTile({
 // Non-interactive centerpiece tree that grows with the streak and sways.
 function MainTree({ stage }: { stage: number }) {
   const sway = useSharedValue(0)
+  const grow = useSharedValue(1)
+  const prevStage = useRef(stage)
   useFocusEffect(useCallback(() => {
     sway.value = withRepeat(
       withSequence(
@@ -131,9 +132,19 @@ function MainTree({ stage }: { stage: number }) {
     )
     return () => { sway.value = 0 }
   }, [sway]))
-  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${sway.value * 1.1}deg` }] }))
+  // When the tree levels up, spring it up from the ground so it looks like it's
+  // actually growing rather than snapping to the next sprite.
+  useEffect(() => {
+    if (stage > prevStage.current) {
+      grow.value = 0.55
+      grow.value = withSpring(1, { damping: 9, stiffness: 110, mass: 0.9 })
+    }
+    prevStage.current = stage
+  }, [stage, grow])
+  const style = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${sway.value * 1.1}deg` }, { scale: grow.value }],
+  }))
   const w = MAIN_STAGE_WIDTH[stage] ?? 0.42
-  const shadowW = MAIN_STAGE_SHADOW[stage] ?? 0.4
   return (
     <View
       pointerEvents="none"
@@ -145,8 +156,11 @@ function MainTree({ stage }: { stage: number }) {
         aspectRatio: 560 / 700,
       }}
     >
-      <ContactShadow spec={{ centerX: 0.5, baseY: 0.98, widthPct: shadowW }} />
-      <Animated.Image source={MAIN_TREE_IMAGES[stage]} resizeMode="contain" style={[{ width: '100%', height: '100%' }, style]} />
+      <Animated.Image
+        source={MAIN_TREE_IMAGES[stage]}
+        resizeMode="contain"
+        style={[{ width: '100%', height: '100%', transformOrigin: '50% 100%' }, style]}
+      />
     </View>
   )
 }
@@ -168,6 +182,7 @@ export default function ForestScreen() {
   // Drag-from-inventory: a ghost sapling follows the finger in window coords
   const sceneRef = useRef<View>(null)
   const rootRef = useRef<View>(null)
+  const prevStageRef = useRef<number | null>(null)
   const sceneRect = useRef<{ x: number; y: number; w: number } | null>(null)
   const rootOrigin = useSharedValue({ x: 0, y: 0 })
   const ghostX = useSharedValue(0)
@@ -191,28 +206,40 @@ export default function ForestScreen() {
         await AsyncStorage.setItem(FOREST_INTRO_SEEN_KEY, '1')
       }
 
-      const streak = await recomputeStreak(user.id)
+      await recomputeStreak(user.id)
       const grove = await loadGrove(user.id, TREE_IDS)
       if (!active) return
       setTrees(grove.planted)
       setUnplacedTrees(grove.unplaced)
-
-      // Milestone reward — once ever, gated on longest streak
-      const longest = useAcornStore.getState().longestStreak
-      const stored = Number((await AsyncStorage.getItem(REWARDED_MILESTONE_KEY)) ?? 0)
-      const reached = MILESTONES.filter((m) => longest >= m.days && m.days > stored)
-      if (active && reached.length > 0) {
-        const m = reached[reached.length - 1]
-        await addAcorns(user.id, m.bonus)
-        await AsyncStorage.setItem(REWARDED_MILESTONE_KEY, String(m.days))
-        setCelebration({ from: '🌱', to: m.emoji, bonus: m.bonus })
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
-      }
     })()
     return () => { active = false; setDragging(false) }
-  }, [user, loadAcorns, addAcorns]))
+  }, [user, loadAcorns]))
 
   const stage = mainTreeStage(currentStreak)
+
+  // Celebrate when the main tree advances a stage (real streak growth OR the
+  // dev streak hack). Only a single-stage jump counts, which skips the initial
+  // 0→N settle on first load. Bonus acorns for a stage are awarded once ever.
+  useEffect(() => {
+    const prev = prevStageRef.current
+    prevStageRef.current = stage
+    if (prev === null || stage !== prev + 1 || !user) return
+    const newStage = stage
+    ;(async () => {
+      let bonus = STAGE_BONUS[newStage] ?? 0
+      if (bonus > 0) {
+        const rewarded = Number((await AsyncStorage.getItem(REWARDED_STAGE_KEY)) ?? 0)
+        if (newStage > rewarded) {
+          await addAcorns(user.id, bonus)
+          await AsyncStorage.setItem(REWARDED_STAGE_KEY, String(newStage))
+        } else {
+          bonus = 0
+        }
+      }
+      setCelebration({ from: STAGE_EMOJI[newStage - 1], to: STAGE_EMOJI[newStage], bonus })
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+    })()
+  }, [stage, user, addAcorns])
 
   // Plant an inventory tree in the grove: it starts as a fresh sapling
   // (placed_at = now resets growth) at the given spot.
@@ -301,12 +328,12 @@ export default function ForestScreen() {
         scrollEnabled={!dragging}
       >
         {/* Header */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18, gap: 10 }}>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 30, fontWeight: '800', color: '#1f3a1a', letterSpacing: -0.6 }}>{t('forest.header')}</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontSize: 30, fontWeight: '800', color: '#1f3a1a', letterSpacing: -0.6 }}>{t('forest.header')}</Text>
             <Text style={{ fontSize: 14, color: '#4a6138', marginTop: 4 }}>{t('forest.sub')}</Text>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexShrink: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fef3c7', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
               <Text style={{ fontSize: 14, fontWeight: '700', color: '#8d4b00' }}>🌰 {balance}</Text>
             </View>
@@ -355,9 +382,8 @@ export default function ForestScreen() {
                 image={species.stages[obj.tree.stage]}
                 pos={pos}
                 kind="floor"
-                depthScale={treeDepthScale(obj.tree.y, obj.tree.stage)}
+                depthScale={treeDepthScale(species, obj.tree.stage)}
                 sceneSize={sceneSize}
-                shadow={TREE_SHADOW}
                 onDragActive={setDragging}
                 onDrop={moveTree}
                 onTap={promptPutAway}
@@ -369,8 +395,8 @@ export default function ForestScreen() {
             <StageCelebration
               fromEmoji={celebration.from}
               toEmoji={celebration.to}
-              title="Milestone reached!"
-              subtitle={`+${celebration.bonus} 🌰 bonus`}
+              title="Your tree grew!"
+              subtitle={celebration.bonus > 0 ? `+${celebration.bonus} 🌰 bonus` : 'Keep your streak alive'}
               onDone={() => setCelebration(null)}
             />
           )}
@@ -442,7 +468,7 @@ export default function ForestScreen() {
       {/* Info modal */}
       <Modal visible={introOpen} transparent animationType="fade" onRequestClose={() => setIntroOpen(false)}>
         <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' }} onPress={() => setIntroOpen(false)}>
-          <Animated.View entering={SlideInDown.springify().damping(18).mass(0.7)}>
+          <Animated.View entering={SlideInDown.duration(260)}>
             <Pressable style={{ backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 28, paddingBottom: 40 }}>
               <ForestIntroContent />
               <TouchableOpacity

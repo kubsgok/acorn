@@ -8,7 +8,10 @@ import { supabase } from './supabase'
 
 export const MAIN_TREE_THRESHOLDS = [1, 3, 7, 14, 30] // streak days → stages 1..5
 export const MAIN_TREE_STAGES = MAIN_TREE_THRESHOLDS.length + 1 // incl. stage 0 (seedling)
-export const MAX_PLANTED_STAGE = 2 // 0 sapling → 1 young → 2 mature (one stage per compliant day)
+// Planted trees grow through compliant-day milestones: 1 → young, 3 → mature.
+// (Only 3 sprite frames per species, so the stage is clamped to MAX_PLANTED_STAGE.)
+export const PLANTED_THRESHOLDS = [1, 3, 7] // compliant days → planted stages 1..3
+export const MAX_PLANTED_STAGE = 2 // 0 sapling → 1 young → 2 mature
 
 function localDayKey(d: Date): string {
   const y = d.getFullYear()
@@ -54,8 +57,9 @@ export async function compliantDaySet(userId: string): Promise<Set<string>> {
   return set
 }
 
-// A freshly planted tree is a sapling (stage 0); it gains a stage for each
-// compliant day AFTER its planting day, clamped to MAX_PLANTED_STAGE.
+// A freshly planted tree is a sapling (stage 0). It counts compliant days AFTER
+// its planting day and advances a stage at each PLANTED_THRESHOLDS milestone
+// (1 → young, 3 → mature), clamped to MAX_PLANTED_STAGE.
 export function plantedTreeStage(placedAtISO: string, compliant: Set<string>): number {
   const cursor = new Date(placedAtISO)
   cursor.setHours(0, 0, 0, 0)
@@ -68,7 +72,12 @@ export function plantedTreeStage(placedAtISO: string, compliant: Set<string>): n
     if (compliant.has(localDayKey(cursor))) count++
     cursor.setDate(cursor.getDate() + 1)
   }
-  return Math.min(count, MAX_PLANTED_STAGE)
+
+  let stage = 0
+  for (const threshold of PLANTED_THRESHOLDS) {
+    if (count >= threshold) stage++
+  }
+  return Math.min(stage, MAX_PLANTED_STAGE)
 }
 
 export interface GroveTree {
