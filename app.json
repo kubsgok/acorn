@@ -44,6 +44,12 @@
           "cameraPermission": "Allow Acorn to access your camera to scan medication labels."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "dc4c9d33-7a4f-4e83-9b43-6b2dcaf4b2af"
+      }
+    }
   }
 }

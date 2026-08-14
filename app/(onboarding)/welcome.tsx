@@ -62,7 +62,7 @@ export default function Welcome() {
 
         {/* CTA */}
         <Animated.View entering={FadeInDown.duration(600).delay(520)}>
-          <PrimaryButton label={t('welcome.cta')} onPress={() => router.push('/(onboarding)/about-you')} />
+          <PrimaryButton label={t('welcome.cta')} onPress={() => router.push('/(onboarding)/comb-intro')} />
         </Animated.View>
       </View>
     </SafeAreaView>

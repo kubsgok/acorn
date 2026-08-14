@@ -12,6 +12,7 @@ create table if not exists users (
   country text,
   acorn_goals text[],
   acorn_goals_other text,
+  comb_barriers text[],
   created_at timestamptz default now()
 );
 
@@ -24,6 +25,7 @@ alter table users add column if not exists birthday date;
 alter table users add column if not exists country text;
 alter table users add column if not exists acorn_goals text[];
 alter table users add column if not exists acorn_goals_other text;
+alter table users add column if not exists comb_barriers text[];
 
 create table if not exists medications (
   id uuid primary key default gen_random_uuid(),

@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { View, Text, Pressable, ActivityIndicator, ViewStyle } from 'react-native'
+import { View, Text, Pressable, ActivityIndicator, ViewStyle, StyleProp } from 'react-native'
 import Animated, {
   Easing,
   useSharedValue,
@@ -74,11 +74,11 @@ export function IconTile({ children, bg = '#fef3c7', size = 72 }: { children: Re
 }
 
 // A spring-press wrapper for tappable cards/pills.
-export function PressableScale({ onPress, disabled, style, children }: { onPress?: () => void; disabled?: boolean; style?: ViewStyle | ViewStyle[]; children: ReactNode }) {
+export function PressableScale({ onPress, disabled, style, children }: { onPress?: () => void; disabled?: boolean; style?: StyleProp<ViewStyle>; children: ReactNode }) {
   const scale = useSharedValue(1)
   const anim = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
   return (
-    <Animated.View style={[anim, style as ViewStyle]}>
+    <Animated.View style={[anim, style]}>
       <Pressable
         onPress={onPress}
         disabled={disabled}

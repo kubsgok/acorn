@@ -17,6 +17,19 @@ function normalizeMediaType(mime?: string | null): string {
   return 'image/jpeg'
 }
 
+// Turn a picker asset into base64 + media type. On web the base64 sometimes
+// only lives inside the `uri` data-URL, so fall back to parsing that.
+function assetToPicked(asset: { uri: string; base64?: string | null; mimeType?: string | null }): PickedImage | null {
+  let base64 = asset.base64 ?? undefined
+  let mediaType = normalizeMediaType(asset.mimeType)
+  if (!base64 && asset.uri?.startsWith('data:')) {
+    const m = asset.uri.match(/^data:([^;]+);base64,(.*)$/)
+    if (m) { mediaType = normalizeMediaType(m[1]); base64 = m[2] }
+  }
+  if (!base64) return null
+  return { uri: asset.uri, base64, mediaType }
+}
+
 export async function pickImage(source: 'camera' | 'gallery'): Promise<PickedImage | null> {
   try {
     if (source === 'camera') {
@@ -41,8 +54,8 @@ export async function pickImage(source: 'camera' | 'gallery'): Promise<PickedIma
           base64: true,
           quality: 0.8,
         })
-        if (result.canceled || !result.assets[0].base64) return null
-        return { uri: result.assets[0].uri, base64: result.assets[0].base64, mediaType: normalizeMediaType(result.assets[0].mimeType) }
+        if (result.canceled) return null
+        return assetToPicked(result.assets[0])
       }
     }
 
@@ -67,8 +80,8 @@ export async function pickImage(source: 'camera' | 'gallery'): Promise<PickedIma
       base64: true,
       quality: 0.8,
     })
-    if (result.canceled || !result.assets[0].base64) return null
-    return { uri: result.assets[0].uri, base64: result.assets[0].base64, mediaType: normalizeMediaType(result.assets[0].mimeType) }
+    if (result.canceled) return null
+    return assetToPicked(result.assets[0])
   } catch (err) {
     console.error('Image pick error:', err)
     return null
