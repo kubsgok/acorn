@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Expo pins versions per SDK; use `npx expo install --check` for SDK-managed packages.
+    ignore:
+      - dependency-name: expo
+        update-types: [version-update:semver-major]
+      # Versions of react / react-native are dictated by the Expo SDK; security fixes arrive via
+      # Expo SDK upgrades (`npx expo install --fix`), so Dependabot must not bump them alone.
+      - dependency-name: react
+      - dependency-name: react-native
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

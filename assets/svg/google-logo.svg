@@ -1,0 +1,13 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Google logo" clip-path="url(#clip0_0_60)">
+<path id="Google red segment" d="M12 4.77C13.76 4.77 15.34 5.38 16.58 6.57L20.02 3.13C17.95 1.19 15.24 0 12 0C7.28 0 3.21 2.7 1.23 6.61L5.26 9.72C6.21 6.88 8.87 4.77 12 4.77Z" fill="#EA4335"/>
+<path id="Google yellow segment" d="M5.26041 14.28C5.01501 13.5449 4.89006 12.775 4.89041 12C4.89041 11.21 5.03041 10.44 5.26041 9.72V6.61H1.23041C0.406134 8.28632 -0.0150616 10.132 0.000411392 12C0.000411392 13.94 0.460411 15.77 1.23041 17.39L5.26041 14.28Z" fill="#FBBC05"/>
+<path id="Google green segment" d="M12 24C15.24 24 17.96 22.93 19.95 21.09L16.05 18.08C14.98 18.8 13.6 19.23 12 19.23C8.87 19.23 6.21 17.12 5.26 14.28L1.23 17.39C3.21 21.3 7.28 24 12 24Z" fill="#34A853"/>
+<path id="Google blue segment" d="M23.52 12.27C23.52 11.42 23.44 10.61 23.3 9.82H12V14.46H18.46C18.18 15.96 17.33 17.23 16.05 18.08V21.09H19.95C22.23 18.99 23.52 15.89 23.52 12.27V12.27Z" fill="#4285F4"/>
+</g>
+<defs>
+<clipPath id="clip0_0_60">
+<rect width="24" height="24" fill="white"/>
+</clipPath>
+</defs>
+</svg>

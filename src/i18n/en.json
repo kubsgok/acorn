@@ -1,0 +1,58 @@
+{
+  "app": {
+    "name": "Acorn Labs"
+  },
+  "welcome": {
+    "title": "Welcome to Acorn Labs",
+    "subtitle": "Your free online visit and treatment starts here.",
+    "terms": {
+      "prefix": "By joining Acorn Labs, you agree to ",
+      "link": "Program Terms and Sensitive Data Content",
+      "suffix": ". Additional terms apply for residents of Singapore"
+    },
+    "createAccount": "Create your free account",
+    "logIn": "Log in"
+  },
+  "comingSoon": "This screen is coming soon.",
+  "login": {
+    "title": "Welcome back",
+    "subtitle": "Log in to Acorn Labs to track your medications.",
+    "wordmark": "Acorn Labs",
+    "email": {
+      "label": "Email address",
+      "placeholder": "you@example.com"
+    },
+    "password": {
+      "label": "Password",
+      "placeholder": "Enter your password",
+      "show": "Show password",
+      "hide": "Hide password"
+    },
+    "forgot": "Forgot password?",
+    "submit": "Log in",
+    "orContinueWith": "or continue with",
+    "apple": "Continue with Apple",
+    "google": "Continue with Google",
+    "socialSoon": "Sign in with Apple is coming soon.",
+    "noAccount": "New to Acorn? ",
+    "createAccount": "Create an account",
+    "errors": {
+      "emailRequired": "Enter your email address.",
+      "emailInvalid": "Enter a valid email address.",
+      "passwordRequired": "Enter your password.",
+      "invalidCredentials": "Email or password is incorrect.",
+      "emailNotConfirmed": "Please confirm your email address first.",
+      "tooManyAttempts": "Too many attempts. Please wait a moment and try again.",
+      "network": "Can't reach Acorn Labs. Check your connection and try again.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "home": {
+    "title": "You're signed in",
+    "signOut": "Sign out",
+    "signOutFailed": "Couldn't sign you out. Check your connection and try again."
+  },
+  "common": {
+    "back": "Go back"
+  }
+}

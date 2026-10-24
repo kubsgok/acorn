@@ -1,0 +1,6 @@
+title = "acorn-labs gitleaks config"
+[extend]
+useDefault = true
+[allowlist]
+description = "Placeholders only"
+paths = ['''\.env\.example$''']

@@ -1,0 +1,18 @@
+# Happy path: Welcome -> Login -> Home -> Sign out.
+# Run:  maestro test -e APP_ID=<bundle id> -e E2E_EMAIL=<test user> -e E2E_PASSWORD=<password> e2e/login.yaml
+# Credentials come from the command line only — never commit them.
+appId: ${APP_ID}
+---
+- launchApp:
+    clearState: true
+- assertVisible: 'Welcome to Acorn Labs'
+- tapOn: 'Log in'
+- assertVisible: 'Welcome back'
+- tapOn: 'Email address'
+- inputText: ${E2E_EMAIL}
+- tapOn: 'Password'
+- inputText: ${E2E_PASSWORD}
+- tapOn: 'Log in'
+- assertVisible: "You're signed in"
+- tapOn: 'Sign out'
+- assertVisible: 'Welcome to Acorn Labs'

@@ -1,5 +1,3 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
 node_modules/
 
@@ -9,33 +7,42 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# Native (generated)
+/ios
+/android
 .kotlin/
-*.orig.*
 *.jks
 *.p8
 *.p12
 *.key
+*.pem
 *.mobileprovision
 
-# Metro
-.metro-health-check*
+# Environment — only .env.example is committed
+.env
+.env.*
+!.env.example
 
-# debug
+# Supabase CLI local state (contains project refs)
+supabase/.temp/
+supabase/.branches/
+
+# Metro / debug / TS
+.metro-health-check*
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+*.tsbuildinfo
 
 # macOS
 .DS_Store
-*.pem
 
-# local env files
-.env*.local
+# Claude Code local overrides
+.claude/settings.local.json
 
-# typescript
-*.tsbuildinfo
+# Playwright MCP output
+.playwright-mcp/
 
-# generated native folders
-/ios
-/android
+# Owner's local working notes (not shared with the team repo)
+docs/PROGRESS.md
+docs/HANDOVER.md
